@@ -1,0 +1,32 @@
+@startuml Message Send and Read
+
+actor "User A\n(sender)" as UserA
+actor "User B\n(recipient)" as UserB
+participant "Engagement Web App" as WebApp
+participant "Conversation Service" as Service
+database "Engagement Postgres" as DB
+participant "Notification Service" as Notify
+
+== Send message ==
+UserA -> WebApp: Compose and send message
+WebApp -> Service: POST /conversations/{conversation_id}/messages
+Service -> DB: INSERT INTO messages\n(conversation_id, sender_id, body, metadata)
+Service -> DB: UPDATE conversation_participants\nSET last_read_at = now()\nWHERE person_id = UserA
+opt Read receipts enabled
+  Service -> DB: INSERT INTO message_reads\n(message_id, person_id = UserA, read_at = now())
+end
+Service --> WebApp: Message payload + timestamps
+Service -> Notify: emit message.sent event
+Notify -> UserB: Push "New message from User A"
+
+== Recipient reads ==
+UserB -> WebApp: Open conversation thread
+WebApp -> Service: PATCH /conversations/{conversation_id}/participants/{UserB}/read
+Service -> DB: UPDATE conversation_participants\nSET last_read_at = now()\nWHERE person_id = UserB
+opt Per-message receipts
+  Service -> DB: INSERT INTO message_reads\n(for each unread message, person_id = UserB,\n read_at = now())
+end
+Service --> WebApp: 204 No Content
+Service -> Notify: emit message.read event (optional)
+
+@enduml

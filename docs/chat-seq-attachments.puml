@@ -1,0 +1,29 @@
+@startuml Message With Attachments
+
+actor "User A\n(sender)" as UserA
+actor "User B\n(recipient)" as UserB
+actor "User C\n(recipient)" as UserC
+participant "Engagement Web App" as WebApp
+participant "File Storage Service" as Storage
+participant "Conversation Service" as Service
+database "Engagement Postgres" as DB
+participant "Notification Service" as Notify
+
+UserA -> WebApp: Compose message + select files
+WebApp -> Storage: Upload binary payload(s)
+Storage --> WebApp: storage_key + metadata per file
+WebApp -> Service: POST /conversations/{conversation_id}/messages\n{body, attachments:[storage_key, metadata]}
+Service -> DB: INSERT INTO messages\n(conversation_id, sender_id, body)
+loop For each attachment
+  Service -> DB: INSERT INTO message_attachments\n(message_id, storage_key, mime_type, file_size)
+end
+Service -> DB: UPDATE conversation_participants\nSET last_read_at = now()\nWHERE person_id = UserA
+opt Read receipts enabled
+  Service -> DB: INSERT INTO message_reads\n(message_id, person_id = UserA, read_at = now())
+end
+Service --> WebApp: Message payload + attachment refs
+Service -> Notify: emit message.sent event (includes attachment metadata)
+Notify -> UserB: Push "New attachment from User A"
+Notify -> UserC: Push "New attachment from User A"
+
+@enduml

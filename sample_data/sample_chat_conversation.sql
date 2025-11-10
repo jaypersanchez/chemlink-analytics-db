@@ -1,0 +1,289 @@
+-- ============================================================================
+-- Sample Chat Conversation: Jayper Sanchez & David Uy
+-- ============================================================================
+-- Purpose: Create a realistic direct message conversation for testing
+-- Database: engagement-platform-dev
+-- ============================================================================
+
+-- User IDs
+-- Jayper Sanchez: 78033fa0-db62-43f9-8e00-02488aeb0ed5
+-- David Uy: 24c5aed9-b257-4d33-99d1-2b7e297a2634
+
+-- ============================================================================
+-- STEP 1: Create a Direct Conversation
+-- ============================================================================
+
+INSERT INTO conversations (id, conversation_type, created_by, created_at, updated_at)
+VALUES (
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',  -- Conversation ID
+    'DIRECT',                                   -- Direct (1-on-1) conversation
+    '24c5aed9-b257-4d33-99d1-2b7e297a2634',  -- Created by David
+    '2025-11-07 02:15:00+00',                -- Nov 7, 2025 at 2:15 AM
+    '2025-11-07 03:45:30+00'                 -- Last updated (last message time)
+);
+
+-- ============================================================================
+-- STEP 2: Add Participants to the Conversation
+-- ============================================================================
+
+-- David Uy (conversation creator)
+INSERT INTO conversation_participants (
+    conversation_id, person_id, role, is_admin, 
+    last_read_at, created_at, updated_at
+)
+VALUES (
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '24c5aed9-b257-4d33-99d1-2b7e297a2634',  -- David
+    'MEMBER',
+    FALSE,
+    '2025-11-07 03:45:30+00',                -- Read all messages
+    '2025-11-07 02:15:00+00',
+    '2025-11-07 03:45:30+00'
+);
+
+-- Jayper Sanchez
+INSERT INTO conversation_participants (
+    conversation_id, person_id, role, is_admin, 
+    last_read_at, created_at, updated_at
+)
+VALUES (
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '78033fa0-db62-43f9-8e00-02488aeb0ed5',  -- Jayper
+    'MEMBER',
+    FALSE,
+    '2025-11-07 03:40:15+00',                -- Read up to message 6
+    '2025-11-07 02:15:00+00',
+    '2025-11-07 03:40:15+00'
+);
+
+-- ============================================================================
+-- STEP 3: Add Messages (Realistic Conversation)
+-- ============================================================================
+
+-- Message 1: David initiates the chat
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a1111111-1111-4111-a111-111111111111',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '24c5aed9-b257-4d33-99d1-2b7e297a2634',  -- David
+    'TEXT',
+    'Hey Jayper! Are you available for a quick chat about the analytics dashboard?',
+    'READ',
+    '2025-11-07 02:15:00+00',
+    '2025-11-07 02:15:00+00'
+);
+
+-- Message 2: Jayper responds
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a2222222-2222-4222-a222-222222222222',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '78033fa0-db62-43f9-8e00-02488aeb0ed5',  -- Jayper
+    'TEXT',
+    'Sure! What''s up?',
+    'READ',
+    '2025-11-07 02:18:30+00',
+    '2025-11-07 02:18:30+00'
+);
+
+-- Message 3: David asks about DEV database
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a3333333-3333-4333-a333-333333333333',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '24c5aed9-b257-4d33-99d1-2b7e297a2634',  -- David
+    'TEXT',
+    'I heard you got the DEV database access working. Can you share the connection details?',
+    'READ',
+    '2025-11-07 02:20:15+00',
+    '2025-11-07 02:20:15+00'
+);
+
+-- Message 4: Jayper responds with details
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a4444444-4444-4444-a444-444444444444',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '78033fa0-db62-43f9-8e00-02488aeb0ed5',  -- Jayper
+    'TEXT',
+    'Yes! I created a guide. Check your email - I sent you "CHEMLINK_DEV_DATABASE_ACCESS_GUIDE.txt"',
+    'READ',
+    '2025-11-07 02:25:45+00',
+    '2025-11-07 02:25:45+00'
+);
+
+-- Message 5: David thanks
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a5555555-5555-4555-a555-555555555555',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '24c5aed9-b257-4d33-99d1-2b7e297a2634',  -- David
+    'TEXT',
+    'Perfect! Thanks so much. This will help a lot with testing.',
+    'READ',
+    '2025-11-07 02:30:20+00',
+    '2025-11-07 02:30:20+00'
+);
+
+-- Message 6: Jayper offers help
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a6666666-6666-4666-a666-666666666666',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '78033fa0-db62-43f9-8e00-02488aeb0ed5',  -- Jayper
+    'TEXT',
+    'No problem! Let me know if you need help setting up the port-forward. Just run: chemlink-psql-dev',
+    'READ',
+    '2025-11-07 02:35:10+00',
+    '2025-11-07 02:35:10+00'
+);
+
+-- Message 7: David asks about schema
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a7777777-7777-4777-a777-777777777777',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '24c5aed9-b257-4d33-99d1-2b7e297a2634',  -- David
+    'TEXT',
+    'BTW, are the DEV schemas the same as production?',
+    'READ',
+    '2025-11-07 03:10:00+00',
+    '2025-11-07 03:10:00+00'
+);
+
+-- Message 8: Jayper confirms
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a8888888-8888-4888-a888-888888888888',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '78033fa0-db62-43f9-8e00-02488aeb0ed5',  -- Jayper
+    'TEXT',
+    '100% identical! I created a comparison doc: DEV_VS_PROD_SCHEMA_COMPARISON.txt',
+    'READ',
+    '2025-11-07 03:15:30+00',
+    '2025-11-07 03:15:30+00'
+);
+
+-- Message 9: David excited
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a9999999-9999-4999-a999-999999999999',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '24c5aed9-b257-4d33-99d1-2b7e297a2634',  -- David
+    'TEXT',
+    'Awesome! That means we can safely test everything in DEV before hitting production 🎉',
+    'READ',
+    '2025-11-07 03:20:00+00',
+    '2025-11-07 03:20:00+00'
+);
+
+-- Message 10: Jayper mentions new tables
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a1010101-1010-4010-a010-101010101010',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '78033fa0-db62-43f9-8e00-02488aeb0ed5',  -- Jayper
+    'TEXT',
+    'Also just added the messaging/chat extension tables. We now have conversations, messages, message_reads, etc.',
+    'READ',
+    '2025-11-07 03:25:45+00',
+    '2025-11-07 03:25:45+00'
+);
+
+-- Message 11: David impressed
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a1111011-1111-4011-a011-111101111011',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '24c5aed9-b257-4d33-99d1-2b7e297a2634',  -- David
+    'TEXT',
+    'Nice work! Are we using those tables right now for this chat? 😄',
+    'READ',
+    '2025-11-07 03:30:15+00',
+    '2025-11-07 03:30:15+00'
+);
+
+-- Message 12: Jayper's meta response
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a1212012-1212-4012-a012-121201212012',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '78033fa0-db62-43f9-8e00-02488aeb0ed5',  -- Jayper
+    'TEXT',
+    'Ha! Yes, this is sample data for testing. But the schema is production-ready!',
+    'READ',
+    '2025-11-07 03:35:20+00',
+    '2025-11-07 03:35:20+00'
+);
+
+-- Message 13: David's final message (most recent, Jayper hasn't fully caught up yet)
+INSERT INTO messages (id, conversation_id, sender_id, message_type, body, status, created_at, updated_at)
+VALUES (
+    'a1313013-1313-4013-a013-131301313013',
+    'c1a2b3c4-d5e6-7f8a-9b0c-1d2e3f4a5b6c',
+    '24c5aed9-b257-4d33-99d1-2b7e297a2634',  -- David
+    'TEXT',
+    'Cool! Let me know when you want to test the analytics queries together.',
+    'DELIVERED',  -- Jayper hasn't read this one yet
+    '2025-11-07 03:45:30+00',
+    '2025-11-07 03:45:30+00'
+);
+
+-- ============================================================================
+-- STEP 4: Add Message Read Receipts
+-- ============================================================================
+
+-- David has read all messages (including his own)
+INSERT INTO message_reads (message_id, person_id, read_at, created_at)
+VALUES 
+    ('a1111111-1111-4111-a111-111111111111', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 02:15:00+00', '2025-11-07 02:15:00+00'),
+    ('a2222222-2222-4222-a222-222222222222', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 02:18:35+00', '2025-11-07 02:18:35+00'),
+    ('a3333333-3333-4333-a333-333333333333', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 02:20:15+00', '2025-11-07 02:20:15+00'),
+    ('a4444444-4444-4444-a444-444444444444', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 02:26:00+00', '2025-11-07 02:26:00+00'),
+    ('a5555555-5555-4555-a555-555555555555', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 02:30:20+00', '2025-11-07 02:30:20+00'),
+    ('a6666666-6666-4666-a666-666666666666', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 02:36:00+00', '2025-11-07 02:36:00+00'),
+    ('a7777777-7777-4777-a777-777777777777', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 03:10:00+00', '2025-11-07 03:10:00+00'),
+    ('a8888888-8888-4888-a888-888888888888', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 03:16:00+00', '2025-11-07 03:16:00+00'),
+    ('a9999999-9999-4999-a999-999999999999', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 03:20:00+00', '2025-11-07 03:20:00+00'),
+    ('a1010101-1010-4010-a010-101010101010', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 03:26:30+00', '2025-11-07 03:26:30+00'),
+    ('a1111011-1111-4011-a011-111101111011', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 03:30:15+00', '2025-11-07 03:30:15+00'),
+    ('a1212012-1212-4012-a012-121201212012', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 03:36:00+00', '2025-11-07 03:36:00+00'),
+    ('a1313013-1313-4013-a013-131301313013', '24c5aed9-b257-4d33-99d1-2b7e297a2634', '2025-11-07 03:45:30+00', '2025-11-07 03:45:30+00');
+
+-- Jayper has read messages 1-12 (not yet read message 13)
+INSERT INTO message_reads (message_id, person_id, read_at, created_at)
+VALUES 
+    ('a1111111-1111-4111-a111-111111111111', '78033fa0-db62-43f9-8e00-02488aeb0ed5', '2025-11-07 02:17:00+00', '2025-11-07 02:17:00+00'),
+    ('a2222222-2222-4222-a222-222222222222', '78033fa0-db62-43f9-8e00-02488aeb0ed5', '2025-11-07 02:18:30+00', '2025-11-07 02:18:30+00'),
+    ('a3333333-3333-4333-a333-333333333333', '78033fa0-db62-43f9-8e00-02488aeb0ed5', '2025-11-07 02:23:00+00', '2025-11-07 02:23:00+00'),
+    ('a4444444-4444-4444-a444-444444444444', '78033fa0-db62-43f9-8e00-02488aeb0ed5', '2025-11-07 02:25:45+00', '2025-11-07 02:25:45+00'),
+    ('a5555555-5555-4555-a555-555555555555', '78033fa0-db62-43f9-8e00-02488aeb0ed5', '2025-11-07 02:31:00+00', '2025-11-07 02:31:00+00'),
+    ('a6666666-6666-4666-a666-666666666666', '78033fa0-db62-43f9-8e00-02488aeb0ed5', '2025-11-07 02:35:10+00', '2025-11-07 02:35:10+00'),
+    ('a7777777-7777-4777-a777-777777777777', '78033fa0-db62-43f9-8e00-02488aeb0ed5', '2025-11-07 03:12:00+00', '2025-11-07 03:12:00+00'),
+    ('a8888888-8888-4888-a888-888888888888', '78033fa0-db62-43f9-8e00-02488aeb0ed5', '2025-11-07 03:15:30+00', '2025-11-07 03:15:30+00'),
+    ('a9999999-9999-4999-a999-999999999999', '78033fa0-db62-43f9-8e00-02488aeb0ed5', '2025-11-07 03:22:00+00', '2025-11-07 03:22:00+00'),
+    ('a1010101-1010-4010-a010-101010101010', '78033fa0-db62-43f9-8e00-02488aeb0ed5', '2025-11-07 03:25:45+00', '2025-11-07 03:25:45+00'),
+    ('a1111011-1111-4011-a011-111101111011', '78033fa0-db62-43f9-8e00-02488aeb0ed5', '2025-11-07 03:32:00+00', '2025-11-07 03:32:00+00'),
+    ('a1212012-1212-4012-a012-121201212012', '78033fa0-db62-43f9-8e00-02488aeb0ed5', '2025-11-07 03:35:20+00', '2025-11-07 03:35:20+00');
+
+-- ============================================================================
+-- STEP 5: Add a Reaction (David reacts to Jayper's meta comment)
+-- ============================================================================
+
+INSERT INTO message_reactions (message_id, person_id, reaction_type, created_at)
+VALUES (
+    'a1212012-1212-4012-a012-121201212012',  -- Jayper's message about "this is sample data"
+    '24c5aed9-b257-4d33-99d1-2b7e297a2634',  -- David reacts
+    '😂',  -- Laughing emoji
+    '2025-11-07 03:36:05+00'
+);
+
+-- ============================================================================
+-- SUMMARY OF SAMPLE DATA
+-- ============================================================================
+-- Conversation: Direct chat between Jayper and David
+-- Messages: 13 total (about DEV database setup)
+-- Read receipts: Both users tracked
+-- Reactions: 1 emoji reaction
+-- Status: Realistic conversation flow with one unread message for Jayper
+-- ============================================================================

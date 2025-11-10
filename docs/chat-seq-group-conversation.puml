@@ -1,0 +1,23 @@
+@startuml Group Conversation Creation
+
+actor "User A\n(owner)" as UserA
+actor "User B\n(member)" as UserB
+actor "User C\n(member)" as UserC
+participant "Engagement Web App" as WebApp
+participant "Conversation Service" as Service
+database "Engagement Postgres" as DB
+participant "Notification Service" as Notify
+
+UserA -> WebApp: Create group chat (subject, members)
+WebApp -> Service: POST /conversations\n{type:"group", subject, participants:[UserA,UserB,UserC]}
+Service -> DB: SELECT persons WHERE id IN (UserA, UserB, UserC)
+Service -> DB: INSERT INTO conversations\n(type = "group", subject, created_by = UserA)
+Service -> DB: INSERT INTO conversation_participants\n(UserA is_admin=true, UserB, UserC)
+DB --> Service: conversation_id
+Service --> WebApp: 201 Created + conversation detail
+WebApp --> UserA: Show group chat with roster
+Service -> Notify: emit conversation.created event
+Notify -> UserB: Push "You were added to <subject>"
+Notify -> UserC: Push "You were added to <subject>"
+
+@enduml

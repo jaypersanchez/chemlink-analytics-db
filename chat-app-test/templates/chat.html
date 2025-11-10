@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Test - Jayper & David</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f0f2f5;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: #075e54;
+            color: white;
+            padding: 15px 20px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            font-size: 20px;
+            font-weight: 500;
+        }
+
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        .chat-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-right: 1px solid #e0e0e0;
+        }
+
+        .chat-panel:last-child {
+            border-right: none;
+        }
+
+        .panel-header {
+            background: #f6f6f6;
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 16px;
+        }
+
+        .panel-header.david .avatar {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .panel-info h2 {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .panel-info .status {
+            font-size: 12px;
+            color: #666;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .message {
+            max-width: 75%;
+            padding: 8px 12px;
+            border-radius: 8px;
+            position: relative;
+            word-wrap: break-word;
+        }
+
+        .message.sent {
+            background: #dcf8c6;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+
+        .message.received {
+            background: white;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        .message-body {
+            font-size: 14px;
+            line-height: 1.4;
+            color: #303030;
+            margin-bottom: 4px;
+        }
+
+        .message-footer {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            color: #667781;
+            justify-content: flex-end;
+        }
+
+        .message-time {
+            font-size: 11px;
+        }
+
+        .read-status {
+            font-size: 14px;
+            color: #53bdeb;
+        }
+
+        .reactions {
+            position: absolute;
+            bottom: -12px;
+            right: 10px;
+            background: white;
+            border-radius: 12px;
+            padding: 2px 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            font-size: 14px;
+            display: flex;
+            gap: 2px;
+            align-items: center;
+        }
+
+        .reaction-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            padding: 2px 4px;
+            border-radius: 8px;
+            transition: background 0.2s;
+        }
+
+        .reaction-item:hover {
+            background: #f0f0f0;
+            cursor: pointer;
+        }
+
+        .input-area {
+            padding: 15px;
+            background: #f6f6f6;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .input-area input {
+            flex: 1;
+            padding: 10px 15px;
+            border: 1px solid #ccc;
+            border-radius: 24px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .input-area input:focus {
+            border-color: #075e54;
+        }
+
+        .input-area button {
+            background: #075e54;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 24px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .input-area button:hover {
+            background: #064e47;
+        }
+
+        .input-area button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        .attach-btn {
+            background: none;
+            border: none;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 8px;
+            color: #666;
+            border-radius: 50%;
+            transition: background 0.2s;
+        }
+
+        .attach-btn:hover {
+            background: #e0e0e0;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .attachment {
+            margin-top: 8px;
+            border-radius: 8px;
+            overflow: hidden;
+            max-width: 300px;
+        }
+
+        .attachment img,
+        .attachment video {
+            max-width: 100%;
+            display: block;
+            border-radius: 8px;
+        }
+
+        .attachment-file {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .attachment-file:hover {
+            background: rgba(0,0,0,0.08);
+        }
+
+        .attachment-icon {
+            font-size: 24px;
+        }
+
+        .attachment-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .attachment-name {
+            font-size: 13px;
+            font-weight: 500;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .attachment-size {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .react-options {
+            display: none;
+            position: absolute;
+            bottom: calc(100% + 5px);
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            border-radius: 28px;
+            padding: 8px 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            gap: 6px;
+            z-index: 10;
+        }
+
+        .react-options.show {
+            display: flex;
+        }
+
+        .react-options span {
+            cursor: pointer;
+            font-size: 24px;
+            padding: 6px;
+            border-radius: 50%;
+            transition: transform 0.2s, background 0.2s;
+        }
+
+        .react-options span:hover {
+            background: #f0f0f0;
+            transform: scale(1.3);
+        }
+
+        .message-wrapper {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 16px;
+        }
+
+        .message-wrapper.sent {
+            align-items: flex-end;
+        }
+
+        .message:hover .message-hover-actions {
+            opacity: 1;
+        }
+
+        .message-hover-actions {
+            opacity: 0;
+            transition: opacity 0.2s;
+            position: absolute;
+            top: -8px;
+            right: 10px;
+            background: white;
+            border-radius: 16px;
+            padding: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .react-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 4px 8px;
+            border-radius: 12px;
+        }
+
+        .react-btn:hover {
+            background: #f0f0f0;
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 3px;
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💬 Chat Test - Jayper & David (Dual View)</h1>
+    </div>
+
+    <div class="container">
+        <!-- Jayper's Panel -->
+        <div class="chat-panel jayper">
+            <div class="panel-header">
+                <div class="avatar">J</div>
+                <div class="panel-info">
+                    <h2>Jayper Sanchez</h2>
+                    <div class="status">jsanchez@nmblr.ai</div>
+                </div>
+            </div>
+            <div class="messages" id="jayper-messages"></div>
+            <div class="input-area">
+                <input type="file" id="jayper-file" class="file-input" onchange="handleFileSelect('jayper', event)" />
+                <button class="attach-btn" onclick="document.getElementById('jayper-file').click()" title="Attach file">📎</button>
+                <input type="text" id="jayper-input" placeholder="Type a message..." />
+                <button onclick="sendMessage('jayper')">Send</button>
+            </div>
+        </div>
+
+        <!-- David's Panel -->
+        <div class="chat-panel david">
+            <div class="panel-header david">
+                <div class="avatar">D</div>
+                <div class="panel-info">
+                    <h2>David Uy</h2>
+                    <div class="status">Daviduy71325@gmail.com</div>
+                </div>
+            </div>
+            <div class="messages" id="david-messages"></div>
+            <div class="input-area">
+                <input type="file" id="david-file" class="file-input" onchange="handleFileSelect('david', event)" />
+                <button class="attach-btn" onclick="document.getElementById('david-file').click()" title="Attach file">📎</button>
+                <input type="text" id="david-input" placeholder="Type a message..." />
+                <button onclick="sendMessage('david')">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const JAYPER_ID = '78033fa0-db62-43f9-8e00-02488aeb0ed5';
+        const DAVID_ID = '24c5aed9-b257-4d33-99d1-2b7e297a2634';
+        
+        let currentMessages = [];
+        let pendingAttachments = {
+            jayper: null,
+            david: null
+        };
+
+        // Load messages
+        async function loadMessages() {
+            try {
+                const response = await fetch('/api/messages');
+                const messages = await response.json();
+                currentMessages = messages;
+                renderMessages();
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
+        }
+
+        // Render messages for both panels
+        function renderMessages() {
+            const jayperPanel = document.getElementById('jayper-messages');
+            const davidPanel = document.getElementById('david-messages');
+            
+            jayperPanel.innerHTML = '';
+            davidPanel.innerHTML = '';
+
+            currentMessages.forEach(msg => {
+                const jayperMsg = createMessageElement(msg, 'jayper');
+                const davidMsg = createMessageElement(msg, 'david');
+                
+                jayperPanel.appendChild(jayperMsg);
+                davidPanel.appendChild(davidMsg);
+            });
+
+            // Auto-scroll to bottom
+            jayperPanel.scrollTop = jayperPanel.scrollHeight;
+            davidPanel.scrollTop = davidPanel.scrollHeight;
+
+            // Auto-mark unread messages as read
+            markUnreadMessages();
+        }
+
+        // Create message element
+        function createMessageElement(msg, viewerUser) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'message-wrapper';
+            
+            const isSent = (viewerUser === 'jayper' && msg.sender_id === JAYPER_ID) ||
+                          (viewerUser === 'david' && msg.sender_id === DAVID_ID);
+            
+            if (isSent) {
+                wrapper.classList.add('sent');
+            }
+
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isSent ? 'sent' : 'received'}`;
+            
+            const body = document.createElement('div');
+            body.className = 'message-body';
+            if (msg.body) {
+                body.textContent = msg.body;
+            }
+            
+            // Add attachment if present
+            if (msg.attachment) {
+                const attachment = document.createElement('div');
+                attachment.className = 'attachment';
+                
+                const mimeType = msg.attachment.mime_type;
+                if (mimeType.startsWith('image/')) {
+                    const img = document.createElement('img');
+                    img.src = `/uploads/${msg.attachment.storage_key}`;
+                    img.alt = msg.attachment.file_name || 'Image';
+                    attachment.appendChild(img);
+                } else if (mimeType.startsWith('video/')) {
+                    const video = document.createElement('video');
+                    video.src = `/uploads/${msg.attachment.storage_key}`;
+                    video.controls = true;
+                    attachment.appendChild(video);
+                } else if (mimeType.startsWith('audio/')) {
+                    const audio = document.createElement('audio');
+                    audio.src = `/uploads/${msg.attachment.storage_key}`;
+                    audio.controls = true;
+                    audio.style.width = '100%';
+                    attachment.appendChild(audio);
+                } else {
+                    // Generic file
+                    const fileDiv = document.createElement('div');
+                    fileDiv.className = 'attachment-file';
+                    fileDiv.onclick = () => window.open(`/uploads/${msg.attachment.storage_key}`, '_blank');
+                    
+                    const icon = document.createElement('div');
+                    icon.className = 'attachment-icon';
+                    icon.textContent = '📄';
+                    
+                    const info = document.createElement('div');
+                    info.className = 'attachment-info';
+                    
+                    const name = document.createElement('div');
+                    name.className = 'attachment-name';
+                    name.textContent = msg.attachment.file_name || 'File';
+                    
+                    const size = document.createElement('div');
+                    size.className = 'attachment-size';
+                    size.textContent = formatFileSize(msg.attachment.file_size_bytes);
+                    
+                    info.appendChild(name);
+                    info.appendChild(size);
+                    fileDiv.appendChild(icon);
+                    fileDiv.appendChild(info);
+                    attachment.appendChild(fileDiv);
+                }
+                
+                body.appendChild(attachment);
+            }
+            
+            const footer = document.createElement('div');
+            footer.className = 'message-footer';
+            
+            const time = new Date(msg.created_at);
+            const timeStr = time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            footer.innerHTML = `<span class="message-time">${timeStr}</span>`;
+            
+            // Read status (only on sent messages)
+            if (isSent) {
+                let readStatus = '';
+                if (viewerUser === 'jayper' && msg.david_read) {
+                    readStatus = '<span class="read-status">✓✓</span>';
+                } else if (viewerUser === 'david' && msg.jayper_read) {
+                    readStatus = '<span class="read-status">✓✓</span>';
+                } else {
+                    readStatus = '<span class="read-status">✓</span>';
+                }
+                footer.innerHTML += readStatus;
+            }
+            
+            messageDiv.appendChild(body);
+            messageDiv.appendChild(footer);
+            
+            // Reactions
+            if (msg.reactions && msg.reactions.length > 0) {
+                const reactions = document.createElement('div');
+                reactions.className = 'reactions';
+                
+                // Group reactions by type
+                const reactionGroups = {};
+                msg.reactions.forEach(r => {
+                    if (!reactionGroups[r.reaction]) {
+                        reactionGroups[r.reaction] = [];
+                    }
+                    reactionGroups[r.reaction].push(r.person_id);
+                });
+                
+                // Create reaction items
+                Object.entries(reactionGroups).forEach(([emoji, personIds]) => {
+                    const item = document.createElement('span');
+                    item.className = 'reaction-item';
+                    
+                    const currentUserId = viewerUser === 'jayper' ? JAYPER_ID : DAVID_ID;
+                    const userReacted = personIds.includes(currentUserId);
+                    
+                    if (userReacted) {
+                        item.style.background = '#e8f4fd';
+                        item.style.border = '1px solid #0a66c2';
+                    }
+                    
+                    item.innerHTML = `${emoji} ${personIds.length > 1 ? personIds.length : ''}`;
+                    item.onclick = () => toggleReaction(msg.id, emoji, viewerUser);
+                    reactions.appendChild(item);
+                });
+                
+                messageDiv.appendChild(reactions);
+            }
+            
+            // Add hover reaction button
+            const hoverActions = document.createElement('div');
+            hoverActions.className = 'message-hover-actions';
+            
+            const reactBtn = document.createElement('button');
+            reactBtn.className = 'react-btn';
+            reactBtn.innerHTML = '😊';
+            reactBtn.onclick = (e) => {
+                e.stopPropagation();
+                showReactionPicker(msg.id, viewerUser, wrapper);
+            };
+            
+            hoverActions.appendChild(reactBtn);
+            messageDiv.appendChild(hoverActions);
+            
+            // Add reaction picker
+            const reactOptions = document.createElement('div');
+            reactOptions.className = 'react-options';
+            reactOptions.id = `react-${msg.id}-${viewerUser}`;
+            
+            const emojis = ['👍', '❤️', '💡', '👏', '😂', '🤔'];
+            emojis.forEach(emoji => {
+                const span = document.createElement('span');
+                span.textContent = emoji;
+                span.onclick = (e) => {
+                    e.stopPropagation();
+                    addReaction(msg.id, emoji, viewerUser);
+                    reactOptions.classList.remove('show');
+                };
+                reactOptions.appendChild(span);
+            });
+            
+            messageDiv.appendChild(reactOptions);
+            
+            wrapper.appendChild(messageDiv);
+            return wrapper;
+        }
+
+        // Handle file selection
+        function handleFileSelect(sender, event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            pendingAttachments[sender] = file;
+            
+            // Show file name in input
+            const inputId = sender === 'jayper' ? 'jayper-input' : 'david-input';
+            const input = document.getElementById(inputId);
+            input.placeholder = `📎 ${file.name}`;
+        }
+        
+        // Format file size
+        function formatFileSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        // Send message
+        async function sendMessage(sender) {
+            const inputId = sender === 'jayper' ? 'jayper-input' : 'david-input';
+            const input = document.getElementById(inputId);
+            const body = input.value.trim();
+            const attachment = pendingAttachments[sender];
+            
+            if (!body && !attachment) return;
+            
+            const senderId = sender === 'jayper' ? JAYPER_ID : DAVID_ID;
+            
+            try {
+                if (attachment) {
+                    // Send with file attachment
+                    const formData = new FormData();
+                    formData.append('sender_id', senderId);
+                    formData.append('body', body || '');
+                    formData.append('file', attachment);
+                    
+                    await fetch('/api/send', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    // Clear attachment
+                    pendingAttachments[sender] = null;
+                    const fileInputId = sender === 'jayper' ? 'jayper-file' : 'david-file';
+                    document.getElementById(fileInputId).value = '';
+                    input.placeholder = 'Type a message...';
+                } else {
+                    // Send text only
+                    await fetch('/api/send', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ sender_id: senderId, body })
+                    });
+                }
+                
+                input.value = '';
+                await loadMessages();
+            } catch (error) {
+                console.error('Error sending message:', error);
+            }
+        }
+
+        // Show reaction picker
+        function showReactionPicker(messageId, viewerUser, wrapper) {
+            // Hide all other pickers
+            document.querySelectorAll('.react-options').forEach(el => {
+                el.classList.remove('show');
+            });
+            
+            // Show this picker
+            const picker = document.getElementById(`react-${messageId}-${viewerUser}`);
+            if (picker) {
+                picker.classList.toggle('show');
+            }
+        }
+        
+        // Add reaction
+        async function addReaction(messageId, emoji, viewerUser) {
+            const personId = viewerUser === 'jayper' ? JAYPER_ID : DAVID_ID;
+            
+            try {
+                await fetch('/api/react', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message_id: messageId, 
+                        person_id: personId, 
+                        reaction_type: emoji 
+                    })
+                });
+                
+                await loadMessages();
+            } catch (error) {
+                console.error('Error adding reaction:', error);
+            }
+        }
+        
+        // Toggle reaction (remove if already reacted)
+        async function toggleReaction(messageId, emoji, viewerUser) {
+            const personId = viewerUser === 'jayper' ? JAYPER_ID : DAVID_ID;
+            
+            // Check if user already reacted with this emoji
+            const msg = currentMessages.find(m => m.id === messageId);
+            const userReaction = msg.reactions.find(r => 
+                r.reaction === emoji && r.person_id === personId
+            );
+            
+            if (userReaction) {
+                // Remove reaction
+                try {
+                    await fetch('/api/remove-reaction', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            message_id: messageId, 
+                            person_id: personId 
+                        })
+                    });
+                    
+                    await loadMessages();
+                } catch (error) {
+                    console.error('Error removing reaction:', error);
+                }
+            } else {
+                // Add reaction
+                await addReaction(messageId, emoji, viewerUser);
+            }
+        }
+        
+        // Close reaction pickers when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.react-options') && 
+                !e.target.closest('.react-btn') && 
+                !e.target.closest('.message-hover-actions')) {
+                document.querySelectorAll('.react-options').forEach(el => {
+                    el.classList.remove('show');
+                });
+            }
+        });
+
+        // Mark unread messages as read
+        async function markUnreadMessages() {
+            const jayperUnread = currentMessages.filter(m => 
+                m.sender_id !== JAYPER_ID && !m.jayper_read
+            ).map(m => m.id);
+            
+            const davidUnread = currentMessages.filter(m => 
+                m.sender_id !== DAVID_ID && !m.david_read
+            ).map(m => m.id);
+            
+            if (jayperUnread.length > 0) {
+                await fetch('/api/mark-read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ person_id: JAYPER_ID, message_ids: jayperUnread })
+                });
+            }
+            
+            if (davidUnread.length > 0) {
+                await fetch('/api/mark-read', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ person_id: DAVID_ID, message_ids: davidUnread })
+                });
+            }
+        }
+
+        // Enter key to send
+        document.getElementById('jayper-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage('jayper');
+        });
+        
+        document.getElementById('david-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') sendMessage('david');
+        });
+
+        // Auto-refresh every 2 seconds
+        setInterval(loadMessages, 2000);
+
+        // Initial load
+        loadMessages();
+    </script>
+</body>
+</html>

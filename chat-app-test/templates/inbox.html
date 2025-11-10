@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChemLink Messaging - Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: #075e54;
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+        }
+
+        .user-selector {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .user-selector label {
+            font-size: 14px;
+        }
+
+        .user-selector select {
+            padding: 8px 12px;
+            border-radius: 4px;
+            border: none;
+            font-size: 14px;
+        }
+
+        .main-content {
+            display: flex;
+            height: calc(100vh - 150px);
+        }
+
+        .sidebar {
+            width: 350px;
+            border-right: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #e0e0e0;
+            background: #fafafa;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            border: none;
+            background: none;
+            font-size: 14px;
+            font-weight: 500;
+            position: relative;
+        }
+
+        .tab.active {
+            background: white;
+            color: #075e54;
+            border-bottom: 2px solid #075e54;
+        }
+
+        .tab .badge {
+            background: #ff4444;
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 11px;
+            margin-left: 5px;
+        }
+
+        .conversations {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        .conversation {
+            padding: 15px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: pointer;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .conversation:hover {
+            background: #f9f9f9;
+        }
+
+        .conversation.active {
+            background: #e3f2fd;
+        }
+
+        .conversation .avatar {
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            font-size: 18px;
+            flex-shrink: 0;
+        }
+
+        .conversation .info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .conversation .name {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .conversation .time {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .conversation .preview {
+            font-size: 13px;
+            color: #666;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .conversation .unread {
+            background: #25d366;
+            color: white;
+            border-radius: 10px;
+            padding: 2px 8px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+
+        .conversation-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 8px;
+        }
+
+        .btn-accept {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            flex: 1;
+        }
+
+        .btn-restrict {
+            background: white;
+            color: #f44336;
+            border: 1px solid #f44336;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            flex: 1;
+        }
+
+        .btn-unrestrict {
+            background: #ff9800;
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            width: 100%;
+        }
+
+        .messages-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .messages-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .messages-header h2 {
+            font-size: 18px;
+        }
+
+        .auto-refresh-indicator {
+            color: #999;
+            font-size: 12px;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            background: #fafafa;
+        }
+
+        .message {
+            max-width: 70%;
+            margin-bottom: 15px;
+            padding: 10px 14px;
+            border-radius: 12px;
+            word-wrap: break-word;
+        }
+
+        .message.sent {
+            background: #dcf8c6;
+            color: #000;
+            margin-left: auto;
+            text-align: right;
+        }
+
+        .message.received {
+            background: white;
+            border: 1px solid #e0e0e0;
+        }
+
+        .message .meta {
+            font-size: 11px;
+            margin-top: 5px;
+            opacity: 0.7;
+        }
+
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: #999;
+        }
+
+        .empty-state-icon {
+            font-size: 64px;
+            margin-bottom: 16px;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        .restricted-banner {
+            background: #fff3cd;
+            color: #856404;
+            padding: 12px 20px;
+            border-bottom: 1px solid #ffeaa7;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💬 ChemLink Messaging - Test</h1>
+            <div class="user-selector">
+                <label>Viewing as:</label>
+                <select id="userSelect" onchange="switchUser()">
+                    <option value="78033fa0-db62-43f9-8e00-02488aeb0ed5">Jayper (jsanchez@nmblr.ai)</option>
+                    <option value="91d73500-3db0-45f4-9837-88ed192d3272">Jayper (impactgena2@gmail.com)</option>
+                    <option value="24c5aed9-b257-4d33-99d1-2b7e297a2634">David Uy</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="sidebar">
+                <div class="tabs">
+                    <button class="tab active" data-folder="MAIN" onclick="switchTab('MAIN')">
+                        Chats <span class="badge" id="main-count" style="display:none">0</span>
+                    </button>
+                    <button class="tab" data-folder="REQUEST" onclick="switchTab('REQUEST')">
+                        Requests <span class="badge" id="request-count" style="display:none">0</span>
+                    </button>
+                    <button class="tab" data-folder="RESTRICTED" onclick="switchTab('RESTRICTED')">
+                        Restricted <span class="badge" id="restricted-count" style="display:none">0</span>
+                    </button>
+                </div>
+                <div class="conversations" id="conversationList">
+                    <div class="loading">Loading conversations...</div>
+                </div>
+            </div>
+
+            <div class="messages-panel">
+                <div class="messages-header">
+                    <h2 id="conversationTitle">Select a conversation</h2>
+                    <span class="auto-refresh-indicator">Auto-refreshing...</span>
+                </div>
+                <div id="restrictedBanner" style="display:none" class="restricted-banner">
+                    🔕 Notifications disabled for this conversation
+                </div>
+                <div class="messages" id="messagesPanel">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💬</div>
+                        <div>Select a conversation to view messages</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = '78033fa0-db62-43f9-8e00-02488aeb0ed5';
+        let currentFolder = 'MAIN';
+        let currentConversation = null;
+        let conversations = {};
+
+        function switchUser() {
+            currentUser = document.getElementById('userSelect').value;
+            currentConversation = null;
+            loadConversations();
+        }
+
+        function switchTab(folder) {
+            currentFolder = folder;
+            document.querySelectorAll('.tab').forEach(tab => {
+                tab.classList.toggle('active', tab.dataset.folder === folder);
+            });
+            loadConversations();
+        }
+
+        async function loadConversations() {
+            try {
+                const response = await fetch(`/api/conversations?user_id=${currentUser}&folder=${currentFolder}`);
+                const data = await response.json();
+                
+                conversations[currentFolder] = data;
+                
+                // Update counts
+                ['MAIN', 'REQUEST', 'RESTRICTED'].forEach(async folder => {
+                    const resp = await fetch(`/api/conversations?user_id=${currentUser}&folder=${folder}`);
+                    const folderData = await resp.json();
+                    const badge = document.getElementById(`${folder.toLowerCase()}-count`);
+                    const unreadCount = folderData.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+                    if (unreadCount > 0) {
+                        badge.textContent = unreadCount;
+                        badge.style.display = 'inline';
+                    } else {
+                        badge.style.display = 'none';
+                    }
+                });
+                
+                renderConversations(data);
+            } catch (error) {
+                console.error('Error loading conversations:', error);
+                document.getElementById('conversationList').innerHTML = 
+                    '<div class="loading">Error loading conversations</div>';
+            }
+        }
+
+        function renderConversations(data) {
+            const list = document.getElementById('conversationList');
+            
+            if (data.length === 0) {
+                list.innerHTML = '<div class="loading">No conversations in this folder</div>';
+                return;
+            }
+            
+            list.innerHTML = data.map(conv => {
+                const other = conv.other_participant;
+                const lastMsg = conv.last_message;
+                const initials = other?.name ? other.name.split(' ').map(n => n[0]).join('') : '?';
+                const time = lastMsg?.created_at ? new Date(lastMsg.created_at).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'}) : '';
+                
+                let actionsHtml = '';
+                if (currentFolder === 'REQUEST') {
+                    actionsHtml = `
+                        <div class="conversation-actions">
+                            <button class="btn-accept" onclick="acceptConversation('${conv.conversation_id}', event)">Accept</button>
+                            <button class="btn-restrict" onclick="restrictConversation('${conv.conversation_id}', event)">Restrict</button>
+                        </div>
+                    `;
+                } else if (currentFolder === 'RESTRICTED') {
+                    actionsHtml = `
+                        <div class="conversation-actions">
+                            <button class="btn-unrestrict" onclick="unrestrictConversation('${conv.conversation_id}', event)">Remove Restriction</button>
+                        </div>
+                    `;
+                }
+                
+                return `
+                    <div class="conversation ${currentConversation === conv.conversation_id ? 'active' : ''}" 
+                         onclick="selectConversation('${conv.conversation_id}')">
+                        <div class="avatar">${initials}</div>
+                        <div class="info">
+                            <div class="name">
+                                <span>${other?.name || 'Unknown'}</span>
+                                ${conv.unread_count > 0 ? `<span class="unread">${conv.unread_count}</span>` : `<span class="time">${time}</span>`}
+                            </div>
+                            <div class="preview">${lastMsg?.body || 'No messages yet'}</div>
+                            ${actionsHtml}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        async function selectConversation(convId) {
+            currentConversation = convId;
+            renderConversations(conversations[currentFolder]);
+            
+            // Find conversation details
+            const conv = conversations[currentFolder].find(c => c.conversation_id === convId);
+            if (conv) {
+                document.getElementById('conversationTitle').textContent = conv.other_participant?.name || 'Conversation';
+                document.getElementById('restrictedBanner').style.display = 
+                    currentFolder === 'RESTRICTED' ? 'flex' : 'none';
+            }
+            
+            // Load messages
+            try {
+                const response = await fetch(`/api/conversations/${convId}/messages?user_id=${currentUser}`);
+                const messages = await response.json();
+                renderMessages(messages);
+                
+                // Mark as read
+                const unreadIds = messages.filter(m => m.sender_id !== currentUser && !m.is_read).map(m => m.id);
+                if (unreadIds.length > 0) {
+                    await fetch('/api/messages/mark-read', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            user_id: currentUser,
+                            message_ids: unreadIds,
+                            conversation_id: convId
+                        })
+                    });
+                    loadConversations(); // Refresh counts
+                }
+            } catch (error) {
+                console.error('Error loading messages:', error);
+            }
+        }
+
+        function renderMessages(messages) {
+            const panel = document.getElementById('messagesPanel');
+            
+            if (messages.length === 0) {
+                panel.innerHTML = `
+                    <div class="empty-state">
+                        <div class="empty-state-icon">💬</div>
+                        <div>No messages yet</div>
+                    </div>
+                `;
+                return;
+            }
+            
+            panel.innerHTML = messages.map(msg => {
+                const isSent = msg.sender_id === currentUser;
+                const time = new Date(msg.created_at).toLocaleTimeString('en-US', {hour: '2-digit', minute: '2-digit'});
+                
+                return `
+                    <div class="message ${isSent ? 'sent' : 'received'}">
+                        <div>${msg.body}</div>
+                        <div class="meta">${time}</div>
+                    </div>
+                `;
+            }).join('');
+            
+            panel.scrollTop = panel.scrollHeight;
+        }
+
+        async function acceptConversation(convId, event) {
+            event.stopPropagation();
+            try {
+                await fetch(`/api/conversations/${convId}/folder`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user_id: currentUser, folder: 'MAIN' })
+                });
+                loadConversations();
+            } catch (error) {
+                console.error('Error accepting conversation:', error);
+            }
+        }
+
+        async function restrictConversation(convId, event) {
+            event.stopPropagation();
+            if (confirm('Restrict this user? You won\'t receive notifications from them.')) {
+                try {
+                    await fetch(`/api/conversations/${convId}/folder`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user_id: currentUser, folder: 'RESTRICTED' })
+                    });
+                    loadConversations();
+                } catch (error) {
+                    console.error('Error restricting conversation:', error);
+                }
+            }
+        }
+
+        async function unrestrictConversation(convId, event) {
+            event.stopPropagation();
+            if (confirm('Remove restriction? You will start receiving notifications again.')) {
+                try {
+                    await fetch(`/api/conversations/${convId}/folder`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user_id: currentUser, folder: 'MAIN' })
+                    });
+                    currentConversation = null;
+                    switchTab('MAIN');
+                } catch (error) {
+                    console.error('Error unrestricting conversation:', error);
+                }
+            }
+        }
+
+        // Auto-refresh every 2 seconds
+        setInterval(() => {
+            loadConversations();
+            if (currentConversation) {
+                selectConversation(currentConversation);
+            }
+        }, 2000);
+        
+        // Initial load
+        loadConversations();
+    </script>
+</body>
+</html>

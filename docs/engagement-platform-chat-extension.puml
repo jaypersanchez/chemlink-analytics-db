@@ -1,0 +1,122 @@
+@startuml Engagement Platform Chat Extension
+!define table(x) entity x << (T,#AAFFFF) >>
+!define junction(x) entity x << (J,#FFFFAA) >>
+
+title Engagement Platform Messaging & Chat Extension
+
+' Reference: existing engagement platform users (Engagement DB)
+table(persons) {
+  **id** : UUID <<PK>>
+  external_id : VARCHAR <<UK>>
+  first_name : VARCHAR
+  last_name : VARCHAR
+  email : VARCHAR
+  created_at : TIMESTAMPTZ
+  updated_at : TIMESTAMPTZ
+}
+
+note left of persons
+  Existing `persons` table
+  from Engagement Platform
+  operational database.
+end note
+
+' Conversation container (1:1, group, broadcast)
+table(conversations) {
+  **id** : UUID <<PK>>
+  conversation_type : VARCHAR <<NN>>
+  subject : VARCHAR
+  created_by : UUID <<FK>> <<NN>>
+  metadata : JSONB
+  created_at : TIMESTAMPTZ <<NN>>
+  updated_at : TIMESTAMPTZ <<NN>>
+  closed_at : TIMESTAMPTZ
+  deleted_at : TIMESTAMPTZ
+}
+
+' Membership per conversation
+junction(conversation_participants) {
+  **conversation_id** : UUID <<FK>> <<NN>>
+  **person_id** : UUID <<FK>> <<NN>>
+  role : VARCHAR
+  notification_level : VARCHAR
+  is_admin : BOOLEAN
+  joined_at : TIMESTAMPTZ <<NN>>
+  left_at : TIMESTAMPTZ
+  last_read_at : TIMESTAMPTZ
+  created_at : TIMESTAMPTZ <<NN>>
+  updated_at : TIMESTAMPTZ <<NN>>
+  deleted_at : TIMESTAMPTZ
+}
+
+' Individual messages within a conversation
+table(messages) {
+  **id** : UUID <<PK>>
+  conversation_id : UUID <<FK>> <<NN>>
+  sender_id : UUID <<FK>> <<NN>>
+  message_type : VARCHAR <<NN>>
+  body : TEXT
+  media_keys : JSONB
+  status : VARCHAR
+  created_at : TIMESTAMPTZ <<NN>>
+  updated_at : TIMESTAMPTZ <<NN>>
+  deleted_at : TIMESTAMPTZ
+}
+
+' Optional attachments for richer content
+table(message_attachments) {
+  **id** : UUID <<PK>>
+  message_id : UUID <<FK>> <<NN>>
+  storage_key : VARCHAR <<NN>>
+  mime_type : VARCHAR
+  file_size_bytes : BIGINT
+  metadata : JSONB
+  created_at : TIMESTAMPTZ <<NN>>
+  deleted_at : TIMESTAMPTZ
+}
+
+' Emoji / reaction tracking
+junction(message_reactions) {
+  **message_id** : UUID <<FK>> <<NN>>
+  **person_id** : UUID <<FK>> <<NN>>
+  reaction_type : VARCHAR <<NN>>
+  created_at : TIMESTAMPTZ <<NN>>
+  deleted_at : TIMESTAMPTZ
+}
+
+' Per-message read receipts (optional view)
+table(message_reads) {
+  **id** : UUID <<PK>>
+  message_id : UUID <<FK>> <<NN>>
+  person_id : UUID <<FK>> <<NN>>
+  read_at : TIMESTAMPTZ <<NN>>
+  created_at : TIMESTAMPTZ <<NN>>
+}
+
+persons ||--o{ conversations : "creates"
+conversations ||--o{ conversation_participants : "has members"
+conversation_participants }o--|| persons : "participant"
+conversations ||--o{ messages : "contains"
+messages }o--|| persons : "sent by"
+messages ||--o{ message_attachments : "has attachments"
+messages ||--o{ message_reactions : "reacted by"
+message_reactions }o--|| persons : "reaction from"
+messages ||--o{ message_reads : "read by"
+message_reads }o--|| persons : "reader"
+
+note right of conversations
+  Supports direct (2-person) and group conversations.
+  `metadata` stores preferences, pinned items, topics.
+end note
+
+note right of conversation_participants
+  `notification_level` toggles mute/unmute.
+  `last_read_at` drives unread badge counts.
+end note
+
+note right of messages
+  `message_type` values: text, file, system, notification.
+  `status` tracks delivery (sent, delivered, failed).
+end note
+
+@enduml

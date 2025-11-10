@@ -1,0 +1,74 @@
+@startuml Engagement Platform Chat Sequence
+
+actor "User A\n(initiator)" as UserA
+actor "User B\n(recipient)" as UserB
+actor "User C\n(team member)" as UserC
+participant "Engagement Web App" as WebApp
+participant "Conversation Service" as Service
+database "Engagement Postgres" as DB
+participant "Notification Service" as Notify
+
+== Start new direct conversation ==
+UserA -> WebApp: Start direct chat with User B
+WebApp -> Service: POST /conversations {participants: [UserA, UserB]}
+Service -> DB: SELECT persons WHERE id IN (UserA, UserB)
+Service -> DB: INSERT INTO conversations
+Service -> DB: INSERT INTO conversation_participants\n(UserA, UserB)
+DB --> Service: conversation_id
+Service --> WebApp: 201 Created + conversation_id
+WebApp --> UserA: Conversation ready
+
+== Send first message ==
+UserA -> WebApp: Compose "Hello!"
+WebApp -> Service: POST /conversations/{conversation_id}/messages
+Service -> DB: INSERT INTO messages
+Service -> DB: UPDATE conversation_participants\nset last_read_at = now() for UserA
+opt Read receipt tracking enabled
+  Service -> DB: INSERT INTO message_reads\n(message_id, UserA, now())
+end
+Service --> WebApp: Message payload with timestamps
+Service -> Notify: emit message.sent event\n(conversation_id, message_id)
+
+== Notify recipient ==
+Notify -> UserB: Push notification "New message from User A"
+
+== Recipient reads ==
+UserB -> WebApp: Open conversation thread
+WebApp -> Service: PATCH /conversations/{conversation_id}/participants/{UserB}/read
+Service -> DB: UPDATE conversation_participants\nset last_read_at = now() for UserB
+opt Read receipt tracking enabled
+  Service -> DB: INSERT INTO message_reads\n(message_id(s), UserB, now())
+end
+Service --> WebApp: 204 No Content
+
+== Create group conversation ==
+UserA -> WebApp: Start group chat with User B, User C
+WebApp -> Service: POST /conversations\n{type: "group", subject, participants: [UserA, UserB, UserC]}
+Service -> DB: SELECT persons WHERE id IN (UserA, UserB, UserC)
+Service -> DB: INSERT INTO conversations\n(type = group, subject, created_by = UserA)
+Service -> DB: INSERT INTO conversation_participants\n(UserA as admin, UserB, UserC)
+DB --> Service: new conversation_id
+Service --> WebApp: 201 Created + conversation details
+Service -> Notify: emit conversation.created event
+Notify -> UserB: Push "Added to group chat"
+Notify -> UserC: Push "Added to group chat"
+
+== Send message with attachments ==
+UserA -> WebApp: Attach document + message
+WebApp -> "File Storage Service" as Storage: Upload file binary
+Storage --> WebApp: storage_key, metadata
+WebApp -> Service: POST /conversations/{conversation_id}/messages\n{body, attachments:[storage_key, metadata]}
+Service -> DB: INSERT INTO messages
+loop For each attachment
+  Service -> DB: INSERT INTO message_attachments\n(message_id, storage_key, metadata)
+end
+Service -> DB: UPDATE conversation_participants\nset last_read_at = now() for UserA
+opt Read receipt tracking enabled
+  Service -> DB: INSERT INTO message_reads\n(message_id, UserA, now())
+end
+Service --> WebApp: Message payload + attachment refs
+Service -> Notify: emit message.sent event\n(includes attachment metadata)
+Notify -> UserB: Push "New attachment from User A"
+Notify -> UserC: Push "New attachment from User A"
+
+@enduml

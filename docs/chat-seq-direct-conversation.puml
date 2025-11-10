@@ -1,0 +1,21 @@
+@startuml Direct Conversation Setup
+
+actor "User A\n(initiator)" as UserA
+actor "User B\n(recipient)" as UserB
+participant "Engagement Web App" as WebApp
+participant "Conversation Service" as Service
+database "Engagement Postgres" as DB
+participant "Notification Service" as Notify
+
+UserA -> WebApp: Start direct chat with User B
+WebApp -> Service: POST /conversations\n{participants:[UserA, UserB]}
+Service -> DB: SELECT persons WHERE id IN (UserA, UserB)
+Service -> DB: INSERT INTO conversations\n(type = "direct", created_by = UserA)
+Service -> DB: INSERT INTO conversation_participants\n(UserA as owner, UserB)
+DB --> Service: conversation_id
+Service --> WebApp: 201 Created + conversation_id
+WebApp --> UserA: Render empty conversation thread
+Service -> Notify: emit conversation.created event
+Notify -> UserB: Push "User A started a chat with you"
+
+@enduml

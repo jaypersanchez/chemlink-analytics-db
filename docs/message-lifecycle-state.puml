@@ -1,0 +1,27 @@
+@startuml Message Lifecycle State
+
+title Message Status Lifecycle (Messaging Service)
+
+[*] --> Draft : Compose\n(not yet persisted)
+
+state Draft {
+  [*] --> Editing
+  Editing --> Ready : user hits send
+}
+
+Draft --> Persisted : Save to DB
+Persisted --> Queued : enqueue delivery job
+Queued --> Sent : insert into messages table
+Sent --> Delivered : push notification acknowledged
+Delivered --> Read : recipient opens conversation\nand updates last_read_at / message_reads
+Delivered --> Failed : delivery timeout or push error
+Sent --> Failed : DB error / transport failure
+Read --> Archived : retention policy / cleanup
+Failed --> Retrying : automatic retry policy
+Retrying --> Sent
+Retrying --> Failed : max attempts exceeded
+
+Read --> [*]
+Archived --> [*]
+
+@enduml
