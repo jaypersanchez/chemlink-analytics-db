@@ -38,11 +38,14 @@ The following tables **MUST exist** in the target database:
 ```sql
 -- Conversations
 conversations (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     conversation_type VARCHAR NOT NULL,  -- 'DIRECT' or 'GROUP'
+    subject VARCHAR,                     -- Optional conversation subject
     created_by UUID NOT NULL,            -- REQUIRED: person who created it
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL,
+    metadata JSONB,                      -- Additional conversation metadata
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    closed_at TIMESTAMPTZ,               -- When conversation was closed
     deleted_at TIMESTAMPTZ
 )
 
@@ -65,23 +68,27 @@ conversation_participants (
 
 -- Messages
 messages (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     conversation_id UUID NOT NULL,
     sender_id UUID NOT NULL,
     message_type VARCHAR NOT NULL,  -- 'TEXT', 'IMAGE', 'VIDEO', 'AUDIO', 'FILE', 'SYSTEM'
     body TEXT,
-    status VARCHAR NOT NULL,        -- 'SENT', 'DELIVERED', 'READ'
-    created_at TIMESTAMPTZ NOT NULL,
-    updated_at TIMESTAMPTZ NOT NULL
+    media_keys JSONB,                -- Additional media references
+    status VARCHAR,                  -- 'SENT', 'DELIVERED', 'READ'
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ,
+    email_notification_sent_at TIMESTAMPTZ
 )
 
 -- Message Reads
 message_reads (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     message_id UUID NOT NULL,
     person_id UUID NOT NULL,
-    read_at TIMESTAMPTZ NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL,
-    PRIMARY KEY (message_id, person_id)  -- or similar unique constraint
+    read_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    UNIQUE (message_id, person_id)
 )
 
 -- Message Reactions
@@ -89,27 +96,42 @@ message_reactions (
     message_id UUID NOT NULL,
     person_id UUID NOT NULL,
     reaction_type VARCHAR NOT NULL,  -- Emoji or reaction code
-    created_at TIMESTAMPTZ NOT NULL,
-    PRIMARY KEY (message_id, person_id)  -- or similar unique constraint
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ,
+    PRIMARY KEY (message_id, person_id)
 )
 
 -- Message Attachments
 message_attachments (
-    id UUID PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     message_id UUID NOT NULL,
     storage_key VARCHAR NOT NULL,    -- Filename on disk
-    mime_type VARCHAR NOT NULL,
+    mime_type VARCHAR,
     file_size_bytes BIGINT,
     metadata JSONB,                  -- Must contain: {"file_name": "original.ext"}
-    created_at TIMESTAMPTZ NOT NULL
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+    deleted_at TIMESTAMPTZ
 )
 
 -- Persons (must exist for user lookups)
 persons (
-    id UUID PRIMARY KEY,
-    first_name VARCHAR,
-    last_name VARCHAR,
-    email VARCHAR
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    external_id VARCHAR,
+    iam_id VARCHAR,
+    employment_type VARCHAR,
+    first_name VARCHAR NOT NULL,
+    middle_name VARCHAR,
+    last_name VARCHAR NOT NULL,
+    email VARCHAR NOT NULL,
+    mobile_number VARCHAR,
+    mobile_number_country_code VARCHAR,
+    profile_picture_key VARCHAR,
+    profile_pic_updated_at TIMESTAMPTZ DEFAULT now(),
+    company_name VARCHAR,
+    role_title VARCHAR,
+    created_at TIMESTAMPTZ DEFAULT now(),
+    updated_at TIMESTAMPTZ,
+    deleted_at TIMESTAMPTZ
 )
 ```
 
