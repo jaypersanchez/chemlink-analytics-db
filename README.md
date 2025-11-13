@@ -172,6 +172,8 @@ Pulls data from production databases (read-only):
 python scripts/etl_pipeline.py --full
 ```
 
+> **Environment toggle:** set `DATA_ENV=kube` before running the scripts to point all connections at the Kubernetes dev databases (`*_DEV_DB_*` values in `.env`). Leave it unset (default) to use the local/production-readonly configuration.
+
 **Incremental update:**
 ```bash
 python scripts/etl_pipeline.py --incremental

@@ -139,6 +139,16 @@ def extract_company_nodes(analytics_conn):
         load_to_staging(analytics_conn, 'neo4j_companies', columns, rows)
         stats['nodes_extracted'] += len(rows)
 
+def _dedupe_records(records, key_field):
+    """Remove duplicates based on key_field while preserving first occurrence"""
+    unique = {}
+    for record in records:
+        key = record.get(key_field)
+        if key is None or key in unique:
+            continue
+        unique[key] = record
+    return list(unique.values())
+
 def extract_role_nodes(analytics_conn):
     """Extract Role nodes"""
     query = """
@@ -149,8 +159,9 @@ def extract_role_nodes(analytics_conn):
     """
     records = extract_from_neo4j(query, "Role nodes")
     if records:
+        deduped = _dedupe_records(records, 'role_id')
         columns = ['role_id', 'title']
-        rows = [[r.get(c) for c in columns] for r in records]
+        rows = [[r.get(c) for c in columns] for r in deduped]
         load_to_staging(analytics_conn, 'neo4j_roles', columns, rows)
         stats['nodes_extracted'] += len(rows)
 
@@ -235,8 +246,8 @@ def extract_experience_nodes(analytics_conn):
     MATCH (e:Experience)
     RETURN 
         e.experience_id as experience_id,
-        date(e.start_date) as start_date,
-        date(e.end_date) as end_date,
+        toString(e.start_date) as start_date,
+        toString(e.end_date) as end_date,
         e.type as type
     """
     records = extract_from_neo4j(query, "Experience nodes")
@@ -252,8 +263,8 @@ def extract_education_nodes(analytics_conn):
     MATCH (e:Education)
     RETURN 
         e.education_id as education_id,
-        date(e.start_date) as start_date,
-        date(e.end_date) as end_date,
+        toString(e.start_date) as start_date,
+        toString(e.end_date) as end_date,
         e.field_of_study as field_of_study
     """
     records = extract_from_neo4j(query, "Education nodes")

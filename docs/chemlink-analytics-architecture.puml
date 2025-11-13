@@ -1,0 +1,44 @@
+@startuml ChemLink Analytics Architecture
+title ChemLink Analytics Data Flow
+
+skinparam backgroundColor #FFFFFF
+skinparam componentStyle rectangle
+skinparam shadowing false
+
+rectangle "Engagement Platform\n(Social Features)\nPRODUCTION • READ-ONLY" as Engagement #AAFFFF
+rectangle "ChemLink Service\n(Profile/Finder)\nPRODUCTION • READ-ONLY" as Service #FFAAAA
+
+package "ETL Pipeline\n(Python)" as ETL {
+  component "Extract\n(ingest snapshots)" as Extract
+  component "Transform\n(clean + unify)" as Transform
+  component "Load\n(postgres)" as Load
+}
+
+database "Analytics Database\nPostgreSQL @ localhost" as Analytics #DDDDDD {
+  frame "Schemas" {
+    rectangle "staging/\n(raw copies)" as Staging
+    rectangle "core/\n(unified data)" as Core
+    rectangle "aggregates/\n(dashboard views)" as Aggregates
+    rectangle "ai/\n(training sets)" as AI
+  }
+}
+
+Engagement -down-> Extract : nightly pull\nRO credentials
+Service -down-> Extract : nightly pull\nRO credentials
+Extract --> Transform : clean join
+Transform --> Load : batch upsert
+Load --> Analytics : populate tables
+
+rectangle "Exports\n(clean CSV/Parquet)" as Exports #EFEFEF
+rectangle "Dashboards\n& BI Tools" as Dashboards #EFEFEF
+rectangle "ML Training\n(Alchemi AI)" as ML #EFEFEF
+
+Analytics -down-> Exports
+Analytics -right-> Dashboards
+Analytics -left-> ML
+
+note right of Analytics
+  Unified view for profiling,\nengagement, cohorts, and AI.
+end note
+
+@enduml

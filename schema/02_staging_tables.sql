@@ -15,19 +15,29 @@
 CREATE TABLE staging.chemlink_persons (
     id BIGINT PRIMARY KEY,
     person_id UUID,
-    email VARCHAR(255),
+    name VARCHAR(255),
+    profile TEXT,
+    chemlink_id VARCHAR(255),
+    kratos_id VARCHAR(255),
+    hydra_id VARCHAR(255),
     first_name VARCHAR(100),
+    middle_name VARCHAR(100),
     last_name VARCHAR(100),
+    email VARCHAR(255),
+    secondary_email VARCHAR(255),
+    mobile_number VARCHAR(50),
+    mobile_number_country_code VARCHAR(10),
     headline_description TEXT,
     linked_in_url VARCHAR(500),
     career_goals TEXT,
     business_experience_summary TEXT,
+    profile_picture TEXT,
+    profile_picture_key VARCHAR(500),
+    profile_pic_updated_at TIMESTAMP,
     location_id BIGINT,
     company_id BIGINT,
     role_id BIGINT,
     has_finder BOOLEAN DEFAULT FALSE,
-    profile_picture_key VARCHAR(500),
-    profile_pic_updated_at TIMESTAMP,
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted_at TIMESTAMP,
@@ -53,8 +63,8 @@ CREATE TABLE staging.chemlink_experiences (
     project_id BIGINT,
     location_id BIGINT,
     description TEXT,
-    start_date DATE,
-    end_date DATE,
+    start_date VARCHAR(50),
+    end_date VARCHAR(50),
     type VARCHAR(50),
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
@@ -78,8 +88,8 @@ CREATE TABLE staging.chemlink_education (
     degree_id BIGINT,
     field_of_study VARCHAR(255),
     description TEXT,
-    start_date DATE,
-    end_date DATE,
+    start_date VARCHAR(50),
+    end_date VARCHAR(50),
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
     deleted_at TIMESTAMP,
@@ -118,10 +128,16 @@ COMMENT ON TABLE staging.chemlink_collections IS 'User-created expert collection
 -- NOTE: Uses voter_id not person_id, has NO deleted_at column
 CREATE TABLE staging.chemlink_query_votes (
     id BIGINT PRIMARY KEY,
+    type VARCHAR(50),
+    profile_id BIGINT,
     voter_id BIGINT,  -- Maps to persons.id
-    query_embedding_id BIGINT,
-    vote VARCHAR(50),
+    score INT,
+    search_key VARCHAR(255),
+    actual_query TEXT,
+    remarks TEXT,
     created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
     
     synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -136,8 +152,12 @@ COMMENT ON TABLE staging.chemlink_query_votes IS 'Search query voting activity (
 CREATE TABLE staging.chemlink_view_access (
     id BIGINT PRIMARY KEY,
     person_id BIGINT,
+    type VARCHAR(50),
     viewed_person_id BIGINT,
+    expiry TIMESTAMP,
+    metadata TEXT,
     created_at TIMESTAMP,
+    updated_at TIMESTAMP,
     deleted_at TIMESTAMP,
     
     synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -148,6 +168,25 @@ CREATE INDEX idx_chemlink_view_created ON staging.chemlink_view_access(created_a
 CREATE INDEX idx_chemlink_view_deleted ON staging.chemlink_view_access(deleted_at);
 
 COMMENT ON TABLE staging.chemlink_view_access IS 'Profile view activity tracking';
+
+-- staging.chemlink_glossary
+-- Source: chemlink-service-prd.glossary
+CREATE TABLE staging.chemlink_glossary (
+    id BIGINT PRIMARY KEY,
+    term VARCHAR(255),
+    meaning VARCHAR(500),
+    category VARCHAR(255),
+    description VARCHAR(500),
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_chemlink_glossary_category ON staging.chemlink_glossary(category);
+CREATE INDEX idx_chemlink_glossary_description ON staging.chemlink_glossary((description IS NOT NULL));
+
+COMMENT ON TABLE staging.chemlink_glossary IS 'Glossary definitions used for AI/semantic search training';
 
 -- ==============================================================================
 -- ENGAGEMENT PLATFORM STAGING TABLES

@@ -315,7 +315,7 @@ CREATE INDEX IF NOT EXISTS idx_location_net_diversity ON aggregates.location_bas
 CREATE TABLE IF NOT EXISTS aggregates.alumni_networks (
     school_id VARCHAR(255) NOT NULL,
     school_name VARCHAR(500),
-    degree_id VARCHAR(255),
+    degree_id VARCHAR(255) NOT NULL DEFAULT 'ALL',
     degree_name VARCHAR(255),
     user_ids INTEGER[] NOT NULL,
     alumni_count INTEGER NOT NULL,
@@ -324,7 +324,7 @@ CREATE TABLE IF NOT EXISTS aggregates.alumni_networks (
     current_companies TEXT[], -- Top companies alumni work at
     current_roles TEXT[], -- Top roles alumni hold
     calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (school_id, COALESCE(degree_id, 'ALL'))
+    PRIMARY KEY (school_id, degree_id)
 );
 
 CREATE INDEX IF NOT EXISTS idx_alumni_net_school ON aggregates.alumni_networks(school_id);
@@ -333,7 +333,7 @@ CREATE INDEX IF NOT EXISTS idx_alumni_net_count ON aggregates.alumni_networks(al
 
 -- Aggregate 7: Project Collaboration Graph
 CREATE TABLE IF NOT EXISTS aggregates.project_collaboration_graph (
-    project_id VARCHAR(255) PRIMARY KEY,
+    project_id VARCHAR(255) NOT NULL,
     project_name VARCHAR(500),
     company_id VARCHAR(255),
     company_name VARCHAR(500),
@@ -345,6 +345,11 @@ CREATE TABLE IF NOT EXISTS aggregates.project_collaboration_graph (
     project_end_date DATE,
     calculated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE aggregates.project_collaboration_graph
+    DROP CONSTRAINT IF EXISTS project_collaboration_graph_pkey;
+ALTER TABLE aggregates.project_collaboration_graph
+    ADD CONSTRAINT project_collaboration_graph_pkey PRIMARY KEY (project_id, company_id);
 
 CREATE INDEX IF NOT EXISTS idx_project_collab_graph_company ON aggregates.project_collaboration_graph(company_id);
 CREATE INDEX IF NOT EXISTS idx_project_collab_graph_user_count ON aggregates.project_collaboration_graph(user_count DESC);

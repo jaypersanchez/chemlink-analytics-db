@@ -1,0 +1,52 @@
+@startuml ChemonicsDatabaseEnvironment
+skinparam backgroundColor #FFFFFF
+skinparam rectangle {
+  BackgroundColor #E7F0FF
+  BorderColor #5B7DB1
+  RoundCorner 15
+}
+skinparam database {
+  BackgroundColor #CBF3CB
+  BorderColor #4F9B4F
+}
+
+rectangle "Chemlink Kubernetes DEV DB Server" {
+  database dev_chemlink_service as "chemlink-service-dev"
+  database dev_kratos as "kratos-chemlink-dev"
+  database dev_engagement as "engagement-platform-dev"
+  database dev_analytics as "chemlink-analytics-dev"
+}
+
+note right of dev_analytics
+  This is experimental and
+  should not be used yet at any point.
+end note
+
+rectangle "Chemlink Prod DB Server" {
+  database prod_chemlink_service as "chemlink-service-prd"
+  database prod_kratos as "chemonics-kratos-prd"
+  database prod_engagement as "engagement-platform-prd"
+}
+
+rectangle "Chemlink Service STG DB Server" {
+  database stg_chemlink_service as "chemlink-service-stg"
+  database stg_engagement_service as "engagement-platform-stg"
+  database stg_kratos as "chemonics-kratos-stg"
+}
+
+rectangle "Engagement Platform STG DB Server" {
+  database stg2_chemlink_service as "chemlink-service-stg"
+  database stg2_kratos as "chemonics-kratos-stg"
+  database stg2_engagement as "engagement-platform-stg"
+}
+
+rectangle "Neo4j Graph Platform" {
+  database neo4j_prod as "neo4j PROD"
+  database neo4j_stg as "neo4j STG"
+}
+
+note bottom of neo4j_prod
+  Contains profile connects and relationships
+  of the Chemlink social media platform.
+end note
+@enduml

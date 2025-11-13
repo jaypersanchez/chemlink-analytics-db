@@ -4,44 +4,52 @@ from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 
 load_dotenv()
+DATA_ENV = os.getenv('DATA_ENV', 'local').lower()
+
+def _build_connection(prefix, fallback_prefix=None, default_host='localhost', default_port=5432):
+    """Create connection params from env vars with optional fallback"""
+    host = os.getenv(f'{prefix}_HOST') or (fallback_prefix and os.getenv(f'{fallback_prefix}_HOST')) or default_host
+    port = os.getenv(f'{prefix}_PORT') or (fallback_prefix and os.getenv(f'{fallback_prefix}_PORT')) or default_port
+    database = os.getenv(f'{prefix}_NAME') or (fallback_prefix and os.getenv(f'{fallback_prefix}_NAME'))
+    user = os.getenv(f'{prefix}_USER') or (fallback_prefix and os.getenv(f'{fallback_prefix}_USER'))
+    password = os.getenv(f'{prefix}_PASSWORD') or (fallback_prefix and os.getenv(f'{fallback_prefix}_PASSWORD'))
+    
+    if not database or not user or not password:
+        raise ValueError(f"Missing database credentials for prefix '{prefix}' (DATA_ENV={DATA_ENV})")
+    
+    return psycopg2.connect(
+        host=host,
+        port=port,
+        database=database,
+        user=user,
+        password=password
+    )
 
 # ==============================================================================
 # SOURCE DATABASE CONNECTIONS (Production - READ-ONLY)
 # ==============================================================================
 
 def get_chemlink_source_connection():
-    """Get connection to ChemLink Production database (READ-ONLY)"""
-    return psycopg2.connect(
-        host=os.getenv('CHEMLINK_PRD_DB_HOST'),
-        port=os.getenv('CHEMLINK_PRD_DB_PORT', 5432),
-        database=os.getenv('CHEMLINK_PRD_DB_NAME'),
-        user=os.getenv('CHEMLINK_PRD_DB_USER'),
-        password=os.getenv('CHEMLINK_PRD_DB_PASSWORD')
-    )
+    """Get connection to ChemLink source database"""
+    if DATA_ENV == 'kube':
+        return _build_connection('CHEMLINK_DEV_DB', 'CHEMLINK_PRD_DB')
+    return _build_connection('CHEMLINK_PRD_DB')
 
 def get_engagement_source_connection():
-    """Get connection to Engagement Platform Production database (READ-ONLY)"""
-    return psycopg2.connect(
-        host=os.getenv('ENGAGEMENT_PRD_DB_HOST'),
-        port=os.getenv('ENGAGEMENT_PRD_DB_PORT', 5432),
-        database=os.getenv('ENGAGEMENT_PRD_DB_NAME'),
-        user=os.getenv('ENGAGEMENT_PRD_DB_USER'),
-        password=os.getenv('ENGAGEMENT_PRD_DB_PASSWORD')
-    )
+    """Get connection to Engagement Platform source database"""
+    if DATA_ENV == 'kube':
+        return _build_connection('ENGAGEMENT_DEV_DB', 'ENGAGEMENT_PRD_DB')
+    return _build_connection('ENGAGEMENT_PRD_DB')
 
 # ==============================================================================
 # ANALYTICS DATABASE CONNECTION (Local)
 # ==============================================================================
 
 def get_analytics_db_connection():
-    """Get connection to local Analytics database"""
-    return psycopg2.connect(
-        host=os.getenv('ANALYTICS_DB_HOST', 'localhost'),
-        port=os.getenv('ANALYTICS_DB_PORT', 5432),
-        database=os.getenv('ANALYTICS_DB_NAME'),
-        user=os.getenv('ANALYTICS_DB_USER'),
-        password=os.getenv('ANALYTICS_DB_PASSWORD')
-    )
+    """Get connection to analytics database"""
+    if DATA_ENV == 'kube':
+        return _build_connection('ANALYTICS_DEV_DB', 'ANALYTICS_DB')
+    return _build_connection('ANALYTICS_DB')
 
 # ==============================================================================
 # QUERY EXECUTION HELPERS

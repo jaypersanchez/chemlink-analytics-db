@@ -158,6 +158,30 @@ CREATE INDEX idx_cohorts_activation ON core.user_cohorts(activation_rate);
 COMMENT ON TABLE core.user_cohorts IS 'Monthly cohort analysis for user retention and activation';
 
 -- ==============================================================================
+-- core.glossary_terms - CURATED GLOSSARY ENTRIES
+-- ==============================================================================
+-- Purpose: Store glossary entries suitable for AI/semantic search (description required)
+-- Source: staging.chemlink_glossary
+-- ==============================================================================
+
+CREATE TABLE core.glossary_terms (
+    glossary_id BIGINT PRIMARY KEY,
+    term VARCHAR(255),
+    meaning VARCHAR(500),
+    category VARCHAR(255),
+    description VARCHAR(500) NOT NULL,
+    display_value VARCHAR(500),
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_core_glossary_category ON core.glossary_terms(category);
+CREATE INDEX idx_core_glossary_display ON core.glossary_terms(display_value);
+
+COMMENT ON TABLE core.glossary_terms IS 'Glossary entries with rich descriptions ready for AI training';
+
+-- ==============================================================================
 -- VERIFICATION
 -- ==============================================================================
 
@@ -169,4 +193,4 @@ FROM pg_tables
 WHERE schemaname = 'core'
 ORDER BY tablename;
 
--- Expected: 3 tables (unified_users, user_activity_events, user_cohorts)
+-- Expected: 4 tables (unified_users, user_activity_events, user_cohorts, glossary_terms)

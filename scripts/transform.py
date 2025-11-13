@@ -113,8 +113,8 @@ def transform_unified_users(conn):
     SELECT 
         -- Primary identifiers
         cp.id AS chemlink_id,
-        NULL AS engagement_person_id, -- engagement uses UUID, store in person_id instead
-        COALESCE(ep.id, cp.person_id) AS person_id,
+        ep.id AS engagement_person_id,
+        cp.person_id AS person_id,
         
         -- Basic profile
         COALESCE(cp.email, ep.email) AS email,
@@ -233,12 +233,55 @@ def transform_unified_users(conn):
         cp.deleted_at
         
     FROM staging.chemlink_persons cp
-    LEFT JOIN staging.engagement_persons ep ON cp.person_id::TEXT = ep.external_id
+    LEFT JOIN staging.engagement_persons ep ON cp.id = ep.external_id
     WHERE cp.deleted_at IS NULL
     ORDER BY cp.id;
     """
     
     return execute_transform(conn, "core.unified_users", transform_sql)
+
+def transform_glossary_terms(conn):
+    """Transform staging glossary data into core.glossary_terms"""
+    log("\n" + "="*70, 'INFO')
+    log("STEP 1B: Publishing Glossary Terms", 'INFO')
+    log("="*70, 'INFO')
+    
+    log("  Clearing core.glossary_terms...", 'INFO')
+    with conn.cursor() as cursor:
+        cursor.execute("TRUNCATE TABLE core.glossary_terms")
+    conn.commit()
+    log("  Table cleared", 'SUCCESS')
+    
+    transform_sql = """
+    INSERT INTO core.glossary_terms (
+        glossary_id,
+        term,
+        meaning,
+        category,
+        description,
+        display_value,
+        created_at,
+        updated_at
+    )
+    SELECT
+        g.id AS glossary_id,
+        NULLIF(TRIM(g.term), '') AS term,
+        NULLIF(TRIM(g.meaning), '') AS meaning,
+        NULLIF(TRIM(g.category), '') AS category,
+        g.description,
+        COALESCE(
+            NULLIF(TRIM(g.term), ''),
+            NULLIF(TRIM(g.meaning), ''),
+            NULLIF(TRIM(g.category), '')
+        ) AS display_value,
+        g.created_at,
+        g.updated_at
+    FROM staging.chemlink_glossary g
+    WHERE g.description IS NOT NULL
+      AND TRIM(g.description) <> '';
+    """
+    
+    return execute_transform(conn, "core.glossary_terms", transform_sql)
 
 def transform_user_activity_events(conn):
     """Transform all activity tables into core.user_activity_events"""
@@ -278,7 +321,7 @@ def transform_user_activity_events(conn):
         p.created_at = (SELECT MIN(p2.created_at) FROM staging.engagement_posts p2 WHERE p2.person_id = p.person_id) AS is_first_activity_of_type
     FROM staging.engagement_posts p
     JOIN staging.engagement_persons ep ON p.person_id = ep.id
-    JOIN core.unified_users u ON ep.id = u.person_id
+    JOIN core.unified_users u ON ep.id = u.engagement_person_id
     WHERE p.deleted_at IS NULL;
     """
     execute_transform(conn, "post events", post_sql)
@@ -306,7 +349,7 @@ def transform_user_activity_events(conn):
         c.created_at = (SELECT MIN(c2.created_at) FROM staging.engagement_comments c2 WHERE c2.person_id = c.person_id) AS is_first_activity_of_type
     FROM staging.engagement_comments c
     JOIN staging.engagement_persons ep ON c.person_id = ep.id
-    JOIN core.unified_users u ON ep.id = u.person_id
+    JOIN core.unified_users u ON ep.id = u.engagement_person_id
     WHERE c.deleted_at IS NULL;
     """
     execute_transform(conn, "comment events", comment_sql)
@@ -458,6 +501,50 @@ def transform_neo4j_data(conn):
     log("\n" + "="*70, 'INFO')
     log("STEP 4: Transforming Neo4j Graph Data", 'INFO')
     log("="*70, 'INFO')
+
+    required_tables = [
+        ('core', 'user_relationships'),
+        ('core', 'career_paths'),
+        ('core', 'education_networks'),
+        ('core', 'company_networks'),
+        ('core', 'location_networks'),
+        ('core', 'project_collaborations'),
+        ('staging', 'neo4j_relationships'),
+        ('staging', 'neo4j_persons'),
+        ('staging', 'neo4j_companies'),
+        ('staging', 'neo4j_roles'),
+        ('staging', 'neo4j_schools'),
+        ('staging', 'neo4j_degrees'),
+        ('staging', 'neo4j_locations'),
+        ('staging', 'neo4j_projects'),
+        ('staging', 'neo4j_languages'),
+        ('staging', 'neo4j_experiences'),
+        ('staging', 'neo4j_educations')
+    ]
+    
+    missing_tables = []
+    with conn.cursor() as cursor:
+        for schema, table in required_tables:
+            cursor.execute(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = %s
+                      AND table_name = %s
+                )
+                """,
+                (schema, table)
+            )
+            exists = cursor.fetchone()[0]
+            if not exists:
+                missing_tables.append(f"{schema}.{table}")
+    
+    if missing_tables:
+        log("  ⚠️ Neo4j schema not initialized; skipping Step 4", 'WARNING')
+        log(f"     Missing tables: {', '.join(missing_tables)}", 'WARNING')
+        log("     Run schema/neo4j_integration.sql and scripts/extract_neo4j.py to enable this step.", 'INFO')
+        return 0
     
     # Transform user relationships (worked together, studied together, etc.)
     log("  Building user-to-user relationships...", 'INFO')
@@ -487,7 +574,13 @@ def transform_neo4j_data(conn):
             'companies', array_agg(DISTINCT c.company_name),
             'roles', array_agg(DISTINCT r.title)
         ) as connection_context,
-        MIN(e1.start_date) as first_connected_at
+        MIN(
+            CASE 
+                WHEN e1.start_date ~ '^\d{4}-\d{2}-\d{2}$' THEN e1.start_date::timestamp
+                WHEN e1.start_date ~ '^\d{1,2}-\d{4}$' THEN to_date(e1.start_date, 'FMMM-YYYY')::timestamp
+                ELSE NULL
+            END
+        ) as first_connected_at
     FROM staging.neo4j_relationships rel1
     JOIN staging.neo4j_relationships rel2 ON rel1.target_node_id = rel2.target_node_id
         AND rel1.target_node_type = 'Company'
@@ -523,7 +616,13 @@ def transform_neo4j_data(conn):
             'schools', array_agg(DISTINCT s.school_name),
             'degrees', array_agg(DISTINCT d.degree_name)
         ) as connection_context,
-        MIN(ed1.start_date) as first_connected_at
+        MIN(
+            CASE 
+                WHEN ed1.start_date ~ '^\d{4}-\d{2}-\d{2}$' THEN ed1.start_date::timestamp
+                WHEN ed1.start_date ~ '^\d{1,2}-\d{4}$' THEN to_date(ed1.start_date, 'FMMM-YYYY')::timestamp
+                ELSE NULL
+            END
+        ) as first_connected_at
     FROM staging.neo4j_relationships rel1
     JOIN staging.neo4j_relationships rel2 ON rel1.target_node_id = rel2.target_node_id
         AND rel1.target_node_type = 'School'
@@ -582,8 +681,24 @@ def transform_neo4j_data(conn):
         d.degree_name,
         array_agg(DISTINCT u.chemlink_id) as user_ids,
         COUNT(DISTINCT u.chemlink_id) as user_count,
-        MIN(EXTRACT(YEAR FROM ed.end_date)) as graduation_year_min,
-        MAX(EXTRACT(YEAR FROM ed.end_date)) as graduation_year_max
+        MIN(
+            EXTRACT(YEAR FROM (
+                CASE 
+                    WHEN ed.end_date ~ '^\d{4}-\d{2}-\d{2}$' THEN ed.end_date::date
+                    WHEN ed.end_date ~ '^\d{1,2}-\d{4}$' THEN to_date(ed.end_date, 'FMMM-YYYY')
+                ELSE NULL
+                END
+            ))
+        ) as graduation_year_min,
+        MAX(
+            EXTRACT(YEAR FROM (
+                CASE 
+                    WHEN ed.end_date ~ '^\d{4}-\d{2}-\d{2}$' THEN ed.end_date::date
+                    WHEN ed.end_date ~ '^\d{1,2}-\d{4}$' THEN to_date(ed.end_date, 'FMMM-YYYY')
+                ELSE NULL
+                END
+            ))
+        ) as graduation_year_max
     FROM staging.neo4j_schools s
     JOIN staging.neo4j_relationships rel_school ON s.school_id = rel_school.target_node_id
         AND rel_school.target_node_type = 'School'
@@ -701,6 +816,7 @@ def main():
     # Run transformations
     try:
         transform_unified_users(conn)
+        transform_glossary_terms(conn)
         transform_user_activity_events(conn)
         transform_user_cohorts(conn)
         # NEW: Neo4j graph data transformations

@@ -40,10 +40,11 @@ junction(conversation_participants) {
   **person_id** : UUID <<FK>> <<NN>>
   role : VARCHAR
   notification_level : VARCHAR
-  is_admin : BOOLEAN
-  joined_at : TIMESTAMPTZ <<NN>>
-  left_at : TIMESTAMPTZ
+  is_admin : BOOLEAN <<NN>>
+  pinned_at : TIMESTAMPTZ
   last_read_at : TIMESTAMPTZ
+  left_at : TIMESTAMPTZ
+  folder : VARCHAR
   created_at : TIMESTAMPTZ <<NN>>
   updated_at : TIMESTAMPTZ <<NN>>
   deleted_at : TIMESTAMPTZ
@@ -58,6 +59,7 @@ table(messages) {
   body : TEXT
   media_keys : JSONB
   status : VARCHAR
+  email_notification_sent_at : TIMESTAMPTZ
   created_at : TIMESTAMPTZ <<NN>>
   updated_at : TIMESTAMPTZ <<NN>>
   deleted_at : TIMESTAMPTZ
@@ -112,11 +114,13 @@ end note
 note right of conversation_participants
   `notification_level` toggles mute/unmute.
   `last_read_at` drives unread badge counts.
+  `folder` tracks REQUEST/MAIN/RESTRICTED inbox.
 end note
 
 note right of messages
   `message_type` values: text, file, system, notification.
   `status` tracks delivery (sent, delivered, failed).
+  `email_notification_sent_at` shows when email alerts went out.
 end note
 
 @enduml

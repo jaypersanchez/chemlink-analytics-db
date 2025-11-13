@@ -86,7 +86,8 @@ def load_to_staging(analytics_conn, schema, table_name, columns, rows):
     """
     
     # Step 3: Batch insert with progress tracking
-    batch_size = 1000
+    # Smaller batches = more progress logs + less transaction time
+    batch_size = 500 if len(rows) > 1000 else 200
     total_inserted = 0
     
     try:
@@ -94,6 +95,7 @@ def load_to_staging(analytics_conn, schema, table_name, columns, rows):
             num_batches = (len(rows) + batch_size - 1) // batch_size
             log(f"  Inserting in {num_batches} batches of {batch_size} rows...", 'INFO')
             
+            last_status = time.time()
             for i in range(0, len(rows), batch_size):
                 batch_num = (i // batch_size) + 1
                 batch = rows[i:i + batch_size]
@@ -106,6 +108,12 @@ def load_to_staging(analytics_conn, schema, table_name, columns, rows):
                 total_inserted += len(batch)
                 progress_pct = (total_inserted / len(rows)) * 100
                 log(f"  Batch {batch_num}/{num_batches}: {total_inserted:,}/{len(rows):,} rows ({progress_pct:.1f}%) - {batch_time:.2f}s", 'PROGRESS')
+                
+                # Emit heartbeat log every ~5 seconds even if batches are large
+                if time.time() - last_status >= 5:
+                    elapsed = time.time() - start
+                    log(f"  ⏳ Still loading {schema}.{table_name}... {total_inserted:,}/{len(rows):,} rows ({progress_pct:.1f}%) after {elapsed:.1f}s", 'INFO')
+                    last_status = time.time()
         
         elapsed = time.time() - start
         log(f"Successfully loaded {total_inserted:,} rows to {schema}.{table_name} in {elapsed:.2f}s", 'SUCCESS')
@@ -260,6 +268,18 @@ def extract_chemlink_data(analytics_conn):
     
     if rows:
         load_to_staging(analytics_conn, 'staging', 'chemlink_view_access', columns, rows)
+    
+    # Step 7: Extract glossary (no person filter; includes null descriptions)
+    query = """
+        SELECT 
+            id, term, meaning, category, description,
+            created_at, updated_at
+        FROM glossary
+        ORDER BY id
+    """
+    rows, columns = extract_table(source_conn, 'glossary', query, 'ChemLink glossary terms')
+    if rows:
+        load_to_staging(analytics_conn, 'staging', 'chemlink_glossary', columns, rows)
     
     source_conn.close()
     log("✅ ChemLink extraction complete")

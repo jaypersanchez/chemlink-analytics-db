@@ -20,7 +20,7 @@ CREATE TABLE aggregates.post_metrics (
     avg_votes_per_post DECIMAL(5,2) DEFAULT 0,
     engagement_rate_comments_pct DECIMAL(5,2) DEFAULT 0, -- comments per post %
     engagement_rate_votes_pct DECIMAL(5,2) DEFAULT 0, -- votes per post %
-    total_votes INT DEFAULT 0
+    total_votes INT DEFAULT 0,
     
     -- Content type breakdown
     text_posts INT DEFAULT 0,

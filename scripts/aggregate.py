@@ -36,6 +36,25 @@ def log(message, level='INFO'):
     print(f"[{timestamp}] {icon} {message}")
     sys.stdout.flush()
 
+def check_tables_exist(conn, tables):
+    """Return list of schema.table names that do not exist"""
+    missing = []
+    with conn.cursor() as cursor:
+        for schema, table in tables:
+            cursor.execute(
+                """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = %s
+                      AND table_name = %s
+                )
+                """,
+                (schema, table)
+            )
+            if not cursor.fetchone()[0]:
+                missing.append(f"{schema}.{table}")
+    return missing
 def execute_aggregate(conn, description, sql):
     """Execute an aggregation SQL statement"""
     log(f"Aggregating {description}...", 'INFO')
@@ -751,7 +770,10 @@ def aggregate_career_path_patterns(conn):
     )
     SELECT 
         array_to_string(array_agg(DISTINCT cn.role_title ORDER BY cn.role_title), ' -> ') as path_vector,
-        md5(array_to_string(array_agg(DISTINCT cn.role_title ORDER BY cn.role_title), '->')) as path_hash,
+        hashtextextended(
+            COALESCE(array_to_string(array_agg(DISTINCT cn.role_title ORDER BY cn.role_title), ' -> '), ''),
+            0
+        )::text as path_hash,
         array_agg(DISTINCT cn.role_title ORDER BY cn.role_title) as role_sequence,
         COUNT(DISTINCT u.user_id) as user_count,
         array_agg(DISTINCT u.user_id) as user_ids,
@@ -995,14 +1017,36 @@ def main():
         aggregate_collection_metrics(conn)
         aggregate_profile_metrics(conn)
         aggregate_funnel_metrics(conn)
-        # NEW: Neo4j graph aggregations
-        aggregate_connection_recommendations(conn)
-        aggregate_company_network_map(conn)
-        aggregate_skills_matching(conn)
-        aggregate_career_path_patterns(conn)
-        aggregate_location_networks(conn)
-        aggregate_alumni_networks(conn)
-        aggregate_project_collaborations(conn)
+        
+        neo4j_required_tables = [
+            ('core', 'user_relationships'),
+            ('core', 'company_networks'),
+            ('core', 'career_paths'),
+            ('core', 'education_networks'),
+            ('core', 'location_networks'),
+            ('core', 'project_collaborations'),
+            ('aggregates', 'connection_recommendations'),
+            ('aggregates', 'company_network_map'),
+            ('aggregates', 'skills_matching_scores'),
+            ('aggregates', 'career_path_patterns'),
+            ('aggregates', 'location_based_networks'),
+            ('aggregates', 'alumni_networks'),
+            ('aggregates', 'project_collaboration_graph')
+        ]
+        missing_neo4j_tables = check_tables_exist(conn, neo4j_required_tables)
+        
+        if missing_neo4j_tables:
+            log("\n⚠️  Neo4j integration tables not found; skipping advanced graph aggregates (Steps 9-15)", 'WARNING')
+            log(f"   Missing tables: {', '.join(missing_neo4j_tables)}", 'WARNING')
+        else:
+            aggregate_connection_recommendations(conn)
+            aggregate_company_network_map(conn)
+            aggregate_skills_matching(conn)
+            aggregate_career_path_patterns(conn)
+            aggregate_location_networks(conn)
+            aggregate_alumni_networks(conn)
+            aggregate_project_collaborations(conn)
+        
         refresh_materialized_views(conn)
     except KeyboardInterrupt:
         log("\n⚠️  Aggregation cancelled by user (Ctrl+C)", 'WARNING')
