@@ -4,7 +4,7 @@ from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 
 load_dotenv()
-DATA_ENV = os.getenv('DATA_ENV', 'local').lower()
+DATA_ENV = os.getenv('DATA_ENV', 'kube').lower()
 
 def _build_connection(prefix, fallback_prefix=None, default_host='localhost', default_port=5432):
     """Create connection params from env vars with optional fallback"""
