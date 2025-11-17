@@ -333,6 +333,102 @@ CREATE INDEX idx_engagement_mentions_deleted ON staging.engagement_mentions(dele
 COMMENT ON TABLE staging.engagement_mentions IS 'User mentions in posts/comments';
 
 -- ==============================================================================
+-- KRATOS IDENTITY STAGING TABLES
+-- ==============================================================================
+
+-- staging.kratos_identities
+-- Source: kratos.identities (traits + metadata per identity)
+CREATE TABLE staging.kratos_identities (
+    id UUID PRIMARY KEY,
+    schema_id VARCHAR(150),
+    schema_url VARCHAR(500),
+    state VARCHAR(50),
+    state_changed_at TIMESTAMP,
+    traits JSONB,
+    metadata_public JSONB,
+    metadata_admin JSONB,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_kratos_identities_state ON staging.kratos_identities(state);
+CREATE INDEX idx_kratos_identities_schema ON staging.kratos_identities(schema_id);
+
+COMMENT ON TABLE staging.kratos_identities IS 'Raw Kratos user identities with traits/metadata';
+
+-- staging.kratos_identity_credentials
+-- Source: kratos.identity_credentials (password, totp, webauthn, etc.)
+CREATE TABLE staging.kratos_identity_credentials (
+    id UUID PRIMARY KEY,
+    identity_id UUID NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    config JSONB,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_kratos_credentials_identity ON staging.kratos_identity_credentials(identity_id);
+CREATE INDEX idx_kratos_credentials_type ON staging.kratos_identity_credentials(type);
+
+COMMENT ON TABLE staging.kratos_identity_credentials IS 'Credential configuration per identity (password/TOTP/WebAuthn)';
+
+-- staging.kratos_sessions
+-- Source: kratos.sessions (authentication events)
+CREATE TABLE staging.kratos_sessions (
+    id UUID PRIMARY KEY,
+    identity_id UUID NOT NULL,
+    active BOOLEAN,
+    authenticated_at TIMESTAMP,
+    issued_at TIMESTAMP,
+    expires_at TIMESTAMP,
+    seen_at TIMESTAMP,
+    logout_at TIMESTAMP,
+    aal VARCHAR(25),
+    authentication_methods JSONB,
+    token_type VARCHAR(50),
+    address VARCHAR(255),
+    ip_address INET,
+    user_agent TEXT,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_kratos_sessions_identity ON staging.kratos_sessions(identity_id);
+CREATE INDEX idx_kratos_sessions_active ON staging.kratos_sessions(active);
+CREATE INDEX idx_kratos_sessions_authenticated ON staging.kratos_sessions(authenticated_at);
+
+COMMENT ON TABLE staging.kratos_sessions IS 'Session-level authentication telemetry for each identity';
+
+-- staging.kratos_session_devices
+-- Source: kratos.identity_session_devices (device/IP fingerprint of sessions)
+CREATE TABLE staging.kratos_session_devices (
+    id UUID PRIMARY KEY,
+    session_id UUID NOT NULL,
+    identity_id UUID NOT NULL,
+    device_identifier VARCHAR(255),
+    ip_address INET,
+    location JSONB,
+    user_agent TEXT,
+    last_seen_at TIMESTAMP,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_kratos_devices_session ON staging.kratos_session_devices(session_id);
+CREATE INDEX idx_kratos_devices_identity ON staging.kratos_session_devices(identity_id);
+
+COMMENT ON TABLE staging.kratos_session_devices IS 'Device fingerprint data associated with each Kratos session';
+
+-- ==============================================================================
 -- VERIFICATION
 -- ==============================================================================
 
@@ -344,4 +440,4 @@ FROM pg_tables
 WHERE schemaname = 'staging'
 ORDER BY tablename;
 
--- Expected: 12 tables (6 chemlink, 6 engagement)
+-- Expected: 16 tables (6 chemlink, 6 engagement, 4 kratos)

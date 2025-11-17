@@ -41,6 +41,12 @@ def get_engagement_source_connection():
         return _build_connection('ENGAGEMENT_DEV_DB', 'ENGAGEMENT_PRD_DB')
     return _build_connection('ENGAGEMENT_PRD_DB')
 
+def get_kratos_source_connection():
+    """Get connection to Kratos identity database"""
+    if DATA_ENV == 'kube':
+        return _build_connection('KRATOS_DEV_DB', 'KRATOS_PRD_DB')
+    return _build_connection('KRATOS_PRD_DB')
+
 # ==============================================================================
 # ANALYTICS DATABASE CONNECTION (Local)
 # ==============================================================================
@@ -124,6 +130,17 @@ def test_connections():
         results['engagement_source'] = {'status': 'OK', 'users': count}
     except Exception as e:
         results['engagement_source'] = {'status': 'ERROR', 'error': str(e)}
+    
+    # Test Kratos source
+    try:
+        conn = get_kratos_source_connection()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT COUNT(*) FROM identities")
+            count = cursor.fetchone()[0]
+        conn.close()
+        results['kratos_source'] = {'status': 'OK', 'identities': count}
+    except Exception as e:
+        results['kratos_source'] = {'status': 'ERROR', 'error': str(e)}
     
     # Test Analytics database
     try:

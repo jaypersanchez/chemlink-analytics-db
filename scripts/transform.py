@@ -106,11 +106,20 @@ def transform_unified_users(conn):
         activation_status,
         activated_at,
         is_test_account,
+        kratos_identity_id,
+        kratos_identity_state,
+        last_login_at,
+        total_sessions,
+        active_sessions,
+        mfa_enabled,
+        highest_aal,
+        account_locked,
+        credential_type,
         created_at,
         updated_at,
         deleted_at
     )
-    SELECT 
+    SELECT DISTINCT ON (cp.id)
         -- Primary identifiers
         cp.id AS chemlink_id,
         ep.id AS engagement_person_id,
@@ -227,6 +236,17 @@ def transform_unified_users(conn):
             THEN TRUE ELSE FALSE 
         END AS is_test_account,
         
+        -- Kratos authentication data
+        ki.id AS kratos_identity_id,
+        ki.state AS kratos_identity_state,
+        (SELECT MAX(authenticated_at) FROM staging.kratos_sessions ks WHERE ks.identity_id = ki.id) AS last_login_at,
+        (SELECT COUNT(*) FROM staging.kratos_sessions ks WHERE ks.identity_id = ki.id) AS total_sessions,
+        (SELECT COUNT(*) FROM staging.kratos_sessions ks WHERE ks.identity_id = ki.id AND ks.active = TRUE) AS active_sessions,
+        CASE WHEN kic.type = 'totp' OR kic.type = 'webauthn' THEN TRUE ELSE FALSE END AS mfa_enabled,
+        (SELECT MAX(aal) FROM staging.kratos_sessions ks WHERE ks.identity_id = ki.id) AS highest_aal,
+        COALESCE((ki.traits->>'properties')::jsonb->>'locked', 'false')::boolean AS account_locked,
+        kic.type AS credential_type,
+        
         -- Timestamps
         cp.created_at,
         cp.updated_at,
@@ -234,6 +254,8 @@ def transform_unified_users(conn):
         
     FROM staging.chemlink_persons cp
     LEFT JOIN staging.engagement_persons ep ON cp.id = ep.external_id
+    LEFT JOIN staging.kratos_identities ki ON cp.kratos_id::uuid = ki.id
+    LEFT JOIN staging.kratos_identity_credentials kic ON ki.id = kic.identity_id
     WHERE cp.deleted_at IS NULL
     ORDER BY cp.id;
     """

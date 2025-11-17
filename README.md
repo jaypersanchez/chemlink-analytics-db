@@ -152,6 +152,7 @@ chemlink-analytics-db/
 Pulls data from production databases (read-only):
 - `chemlink-service-prd`
 - `engagement-platform-prd`
+- `chemonics-kratos-prd` (Kratos identity/authentication)
 
 ### Transform
 - Joins data using `external_id` relationship
@@ -191,6 +192,9 @@ python scripts/etl_pipeline.py --start-date 2025-10-01 --end-date 2025-10-31
 ### Environment Variables (`.env`)
 
 ```bash
+# Environment toggle (local | kube)
+DATA_ENV=kube
+
 # Source Database - ChemLink Service (Production, Read-Only)
 CHEMLINK_PRD_DB_HOST=...
 CHEMLINK_PRD_DB_PORT=5432
@@ -204,6 +208,20 @@ ENGAGEMENT_PRD_DB_PORT=5432
 ENGAGEMENT_PRD_DB_NAME=engagement-platform-prd
 ENGAGEMENT_PRD_DB_USER=chemlink-readonly
 ENGAGEMENT_PRD_DB_PASSWORD=...
+
+# Identity Database - Kratos (Production, Read-Only)
+KRATOS_PRD_DB_HOST=...
+KRATOS_PRD_DB_PORT=5432
+KRATOS_PRD_DB_NAME=chemonics-kratos-prd
+KRATOS_PRD_DB_USER=chemlink-readonly
+KRATOS_PRD_DB_PASSWORD=...
+
+# Kubernetes Dev overrides (used when DATA_ENV=kube)
+CHEMLINK_DEV_DB_HOST=localhost
+ENGAGEMENT_DEV_DB_HOST=localhost
+KRATOS_DEV_DB_HOST=localhost
+ANALYTICS_DEV_DB_HOST=localhost
+# ... (ports/users/passwords follow the kube port-forward)
 
 # Analytics Database (Local)
 ANALYTICS_DB_HOST=localhost

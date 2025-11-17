@@ -931,10 +931,87 @@ def aggregate_project_collaborations(conn):
     
     return execute_aggregate(conn, "aggregates.project_collaboration_graph", aggregate_sql)
 
+def aggregate_kratos_analytics(conn):
+    """Generate all Kratos authentication and session analytics"""
+    log("\n" + "="*70, 'INFO')
+    log("STEP 16: Generating Kratos Authentication Analytics", 'INFO')
+    log("="*70, 'INFO')
+    
+    # Check if Kratos tables exist
+    kratos_tables = [
+        ('staging', 'kratos_sessions'),
+        ('staging', 'kratos_identities'),
+        ('staging', 'kratos_identity_credentials')
+    ]
+    missing_kratos = check_tables_exist(conn, kratos_tables)
+    
+    if missing_kratos:
+        log(f"  ⚠️  Skipping Kratos aggregates - missing tables: {', '.join(missing_kratos)}", 'WARNING')
+        return 0
+    
+    # Execute Kratos aggregation SQL file
+    log("  Executing schema/06_kratos_aggregates.sql...", 'INFO')
+    start = time.time()
+    
+    try:
+        # Read and execute the SQL file
+        sql_file = Path(__file__).parent.parent / 'schema' / '06_kratos_aggregates.sql'
+        with open(sql_file, 'r') as f:
+            sql_content = f.read()
+        
+        with conn.cursor() as cursor:
+            cursor.execute(sql_content)
+        conn.commit()
+        
+        elapsed = time.time() - start
+        log(f"  ✅ Kratos aggregates created in {elapsed:.2f}s", 'SUCCESS')
+        
+        # Count rows in each table/view
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT tablename, 
+                       (xpath('/row/cnt/text()', xml_count))[1]::text::int as row_count
+                FROM (
+                    SELECT tablename, 
+                           query_to_xml(format('SELECT COUNT(*) AS cnt FROM aggregates.%I', tablename), false, true, '') as xml_count
+                    FROM pg_tables
+                    WHERE schemaname = 'aggregates'
+                      AND tablename LIKE 'kratos_%'
+                ) t
+                ORDER BY tablename
+                """
+            )
+            kratos_counts = cursor.fetchall()
+        
+        total_rows = 0
+        for table_name, row_count in kratos_counts:
+            log(f"    - aggregates.{table_name}: {row_count:,} rows", 'INFO')
+            if row_count is not None:
+                total_rows += row_count
+        
+        stats['total_rows_inserted'] += total_rows
+        stats['aggregates_created'] += len(kratos_counts)
+        
+        return total_rows
+        
+    except FileNotFoundError:
+        log("  ❌ Error: schema/06_kratos_aggregates.sql not found", 'ERROR')
+        stats['errors'].append({'step': 'kratos_analytics', 'error': 'SQL file not found'})
+        return 0
+    except Exception as e:
+        conn.rollback()
+        elapsed = time.time() - start
+        error_msg = f"Error generating Kratos analytics after {elapsed:.2f}s: {str(e)}"
+        log(error_msg, 'ERROR')
+        log(f"  Traceback:\n{traceback.format_exc()}", 'ERROR')
+        stats['errors'].append({'step': 'kratos_analytics', 'error': str(e), 'traceback': traceback.format_exc()})
+        return 0
+
 def refresh_materialized_views(conn):
     """Refresh materialized views"""
     log("\n" + "="*70, 'INFO')
-    log("STEP 16: Refreshing Materialized Views", 'INFO')
+    log("STEP 17: Refreshing Materialized Views", 'INFO')
     log("="*70, 'INFO')
     
     log("  Refreshing aggregates.user_engagement_levels...", 'INFO')
@@ -1017,6 +1094,9 @@ def main():
         aggregate_collection_metrics(conn)
         aggregate_profile_metrics(conn)
         aggregate_funnel_metrics(conn)
+
+        # Kratos authentication/session analytics
+        aggregate_kratos_analytics(conn)
         
         neo4j_required_tables = [
             ('core', 'user_relationships'),

@@ -20,6 +20,10 @@ DROP TABLE IF EXISTS staging.engagement_comments CASCADE;
 DROP TABLE IF EXISTS staging.engagement_groups CASCADE;
 DROP TABLE IF EXISTS staging.engagement_group_members CASCADE;
 DROP TABLE IF EXISTS staging.engagement_mentions CASCADE;
+DROP TABLE IF EXISTS staging.kratos_identities CASCADE;
+DROP TABLE IF EXISTS staging.kratos_identity_credentials CASCADE;
+DROP TABLE IF EXISTS staging.kratos_sessions CASCADE;
+DROP TABLE IF EXISTS staging.kratos_session_devices CASCADE;
 
 -- ==============================================================================
 -- CHEMLINK SERVICE STAGING TABLES
@@ -238,3 +242,74 @@ CREATE TABLE staging.engagement_mentions (
 );
 
 COMMENT ON TABLE staging.engagement_mentions IS 'User mentions in posts/comments';
+
+-- ==============================================================================
+-- KRATOS IDENTITY STAGING TABLES (FIXED TYPES)
+-- ==============================================================================
+
+CREATE TABLE staging.kratos_identities (
+    id UUID PRIMARY KEY,
+    schema_id VARCHAR(150),
+    schema_url VARCHAR(500),
+    state VARCHAR(50),
+    state_changed_at TIMESTAMP,
+    traits JSONB,
+    metadata_public JSONB,
+    metadata_admin JSONB,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    deleted_at TIMESTAMP,
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_kratos_identities_state ON staging.kratos_identities(state);
+
+CREATE TABLE staging.kratos_identity_credentials (
+    id UUID PRIMARY KEY,
+    identity_id UUID NOT NULL,
+    type VARCHAR(50) NOT NULL,
+    config JSONB,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_kratos_credentials_identity ON staging.kratos_identity_credentials(identity_id);
+
+CREATE TABLE staging.kratos_sessions (
+    id UUID PRIMARY KEY,
+    identity_id UUID NOT NULL,
+    active BOOLEAN,
+    authenticated_at TIMESTAMP,
+    issued_at TIMESTAMP,
+    expires_at TIMESTAMP,
+    seen_at TIMESTAMP,
+    logout_at TIMESTAMP,
+    aal VARCHAR(25),
+    authentication_methods JSONB,
+    token_type VARCHAR(50),
+    address VARCHAR(255),
+    ip_address INET,
+    user_agent TEXT,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_kratos_sessions_identity ON staging.kratos_sessions(identity_id);
+
+CREATE TABLE staging.kratos_session_devices (
+    id UUID PRIMARY KEY,
+    session_id UUID NOT NULL,
+    identity_id UUID NOT NULL,
+    device_identifier VARCHAR(255),
+    ip_address INET,
+    location JSONB,
+    user_agent TEXT,
+    last_seen_at TIMESTAMP,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_kratos_devices_session ON staging.kratos_session_devices(session_id);

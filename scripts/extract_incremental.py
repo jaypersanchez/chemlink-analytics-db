@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from db_config import (
     get_chemlink_source_connection,
     get_engagement_source_connection,
+    get_kratos_source_connection,
     get_analytics_db_connection
 )
 
@@ -43,7 +44,11 @@ DEFAULT_CONFLICT_COLUMNS = {
     'engagement_comments': ['id'],
     'engagement_groups': ['id'],
     'engagement_group_members': ['id'],
-    'engagement_mentions': ['id']
+    'engagement_mentions': ['id'],
+    'kratos_identities': ['id'],
+    'kratos_identity_credentials': ['id'],
+    'kratos_sessions': ['id'],
+    'kratos_session_devices': ['id']
 }
 
 def log(message, level='INFO'):
@@ -85,6 +90,16 @@ def load_to_staging(analytics_conn, schema, table_name, columns, rows, conflict_
     log(f"Upserting {len(rows):,} rows into {schema}.{table_name}...", 'INFO')
     start = time.time()
 
+    # Convert JSON/JSONB columns (dict/list) to JSON strings
+    fixed_rows = []
+    for row in rows:
+        row_list = list(row)
+        for idx, value in enumerate(row_list):
+            # Convert Python dicts/lists to JSON strings for JSONB columns
+            if isinstance(value, (dict, list)):
+                row_list[idx] = json.dumps(value)
+        fixed_rows.append(tuple(row_list))
+
     placeholders = ','.join(['%s'] * len(columns))
     insert_query = f"""
         INSERT INTO {schema}.{table_name} ({','.join(columns)})
@@ -97,18 +112,18 @@ def load_to_staging(analytics_conn, schema, table_name, columns, rows, conflict_
     else:
         insert_query += f" ON CONFLICT ({','.join(conflict_columns)}) DO NOTHING"
 
-    batch_size = 500 if len(rows) > 1000 else 200
+    batch_size = 500 if len(fixed_rows) > 1000 else 200
     total_upserted = 0
 
     try:
         with analytics_conn.cursor() as cursor:
-            num_batches = (len(rows) + batch_size - 1) // batch_size
+            num_batches = (len(fixed_rows) + batch_size - 1) // batch_size
             log(f"  Processing in {num_batches} batches of {batch_size} rows...", 'INFO')
 
             last_status = time.time()
-            for i in range(0, len(rows), batch_size):
+            for i in range(0, len(fixed_rows), batch_size):
                 batch_num = (i // batch_size) + 1
-                batch = rows[i:i + batch_size]
+                batch = fixed_rows[i:i + batch_size]
 
                 batch_start = time.time()
                 cursor.executemany(insert_query, batch)
@@ -116,12 +131,12 @@ def load_to_staging(analytics_conn, schema, table_name, columns, rows, conflict_
                 batch_time = time.time() - batch_start
 
                 total_upserted += len(batch)
-                progress_pct = (total_upserted / len(rows)) * 100
-                log(f"  Batch {batch_num}/{num_batches}: {total_upserted:,}/{len(rows):,} rows ({progress_pct:.1f}%) - {batch_time:.2f}s", 'PROGRESS')
+                progress_pct = (total_upserted / len(fixed_rows)) * 100
+                log(f"  Batch {batch_num}/{num_batches}: {total_upserted:,}/{len(fixed_rows):,} rows ({progress_pct:.1f}%) - {batch_time:.2f}s", 'PROGRESS')
 
                 if time.time() - last_status >= 5:
                     elapsed = time.time() - start
-                    log(f"  ⏳ Still loading {schema}.{table_name}... {total_upserted:,}/{len(rows):,} rows ({progress_pct:.1f}%) after {elapsed:.1f}s", 'INFO')
+                    log(f"  ⏳ Still loading {schema}.{table_name}... {total_upserted:,}/{len(fixed_rows):,} rows ({progress_pct:.1f}%) after {elapsed:.1f}s", 'INFO')
                     last_status = time.time()
 
         elapsed = time.time() - start
@@ -140,6 +155,113 @@ def load_to_staging(analytics_conn, schema, table_name, columns, rows, conflict_
         stats['errors'].append({'table': f"{schema}.{table_name}", 'error': str(e), 'traceback': traceback.format_exc()})
         return 0
 
+def get_table_columns(source_conn, table_name, schema='public'):
+    """Fetch available columns for a source table"""
+    query = """
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = %s
+          AND table_name = %s
+    """
+    with source_conn.cursor() as cursor:
+        cursor.execute(query, (schema, table_name))
+        return {row[0] for row in cursor.fetchall()}
+
+def build_dynamic_select_query(source_conn, table_name, column_specs, order_by=None, schema='public'):
+    """
+    Build a SELECT statement resilient to schema differences.
+    column_specs: [{'target': 'col', 'sources': ['col','alt'], 'default': 'NULL::type'}, ...]
+    """
+    available_columns = get_table_columns(source_conn, table_name, schema)
+    if not available_columns:
+        log(f"   ⚠️ No columns found for {table_name} (schema={schema})", 'WARNING')
+        return None
+    
+    select_parts = []
+    for spec in column_specs:
+        target = spec['target']
+        source_column = next((candidate for candidate in spec.get('sources', []) if candidate in available_columns), None)
+        
+        if source_column:
+            if source_column == target:
+                select_parts.append(source_column)
+            else:
+                select_parts.append(f"{source_column} AS {target}")
+        elif 'default' in spec:
+            select_parts.append(f"{spec['default']} AS {target}")
+        else:
+            log(f"   ⚠️ Column '{target}' not present in {table_name}, skipping", 'WARNING')
+    
+    if not select_parts:
+        log(f"   ❌ Unable to build select list for {table_name}", 'ERROR')
+        return None
+    
+    order_clause = f" ORDER BY {order_by}" if order_by else ""
+    return f"SELECT {', '.join(select_parts)} FROM {table_name}{order_clause}"
+
+KRATOS_TABLE_CONFIG = [
+    {
+        'source_table': 'identities',
+        'staging_table': 'kratos_identities',
+        'description': 'Kratos identities',
+        'order_by': 'updated_at DESC',
+        'columns': [
+            {'target': 'id', 'sources': ['id']},
+            {'target': 'schema_id', 'sources': ['schema_id']},
+            {'target': 'schema_url', 'sources': ['schema_url']},
+            {'target': 'state', 'sources': ['state']},
+            {'target': 'state_changed_at', 'sources': ['state_changed_at']},
+            {'target': 'traits', 'sources': ['traits']},
+            {'target': 'metadata_public', 'sources': ['metadata_public']},
+            {'target': 'metadata_admin', 'sources': ['metadata_admin']},
+            {'target': 'created_at', 'sources': ['created_at']},
+            {'target': 'updated_at', 'sources': ['updated_at']},
+            {'target': 'deleted_at', 'sources': ['deleted_at'], 'default': 'NULL::TIMESTAMP'}
+        ]
+    },
+    {
+        'source_table': 'sessions',
+        'staging_table': 'kratos_sessions',
+        'description': 'Kratos sessions',
+        'order_by': 'issued_at DESC',
+        'columns': [
+            {'target': 'id', 'sources': ['id']},
+            {'target': 'identity_id', 'sources': ['identity_id']},
+            {'target': 'active', 'sources': ['active']},
+            {'target': 'authenticated_at', 'sources': ['authenticated_at']},
+            {'target': 'issued_at', 'sources': ['issued_at']},
+            {'target': 'expires_at', 'sources': ['expires_at']},
+            {'target': 'seen_at', 'sources': ['seen_at']},
+            {'target': 'logout_at', 'sources': ['logout_at']},
+            {'target': 'aal', 'sources': ['aal', 'authenticator_assurance_level']},
+            {'target': 'authentication_methods', 'sources': ['authentication_methods'], 'default': 'NULL::JSONB'},
+            {'target': 'token_type', 'sources': ['token_type'], 'default': 'NULL::VARCHAR'},
+            {'target': 'address', 'sources': ['address'], 'default': 'NULL::VARCHAR'},
+            {'target': 'ip_address', 'sources': ['ip_address'], 'default': 'NULL::INET'},
+            {'target': 'user_agent', 'sources': ['user_agent'], 'default': 'NULL::TEXT'},
+            {'target': 'created_at', 'sources': ['created_at']},
+            {'target': 'updated_at', 'sources': ['updated_at']}
+        ]
+    },
+    {
+        'source_table': 'identity_session_devices',
+        'staging_table': 'kratos_session_devices',
+        'description': 'Kratos session devices',
+        'order_by': 'updated_at DESC',
+        'columns': [
+            {'target': 'id', 'sources': ['id']},
+            {'target': 'session_id', 'sources': ['session_id', 'sid']},
+            {'target': 'identity_id', 'sources': ['identity_id']},
+            {'target': 'device_identifier', 'sources': ['device_identifier', 'identifier'], 'default': 'NULL::VARCHAR'},
+            {'target': 'ip_address', 'sources': ['ip_address'], 'default': 'NULL::INET'},
+            {'target': 'location', 'sources': ['location'], 'default': 'NULL::JSONB'},
+            {'target': 'user_agent', 'sources': ['user_agent'], 'default': 'NULL::TEXT'},
+            {'target': 'last_seen_at', 'sources': ['last_seen_at', 'seen_at'], 'default': 'NULL::TIMESTAMP'},
+            {'target': 'created_at', 'sources': ['created_at']},
+            {'target': 'updated_at', 'sources': ['updated_at']}
+        ]
+    }
+]
 def extract_chemlink_data(analytics_conn):
     """Extract all ChemLink Service data"""
     log("\n" + "="*70)
@@ -433,6 +555,78 @@ def extract_engagement_data(analytics_conn):
     source_conn.close()
     log("✅ Engagement extraction complete")
 
+def extract_kratos_data(analytics_conn):
+    """Extract Kratos identity + session data (incremental/upsert)"""
+    log("\n" + "="*70)
+    log("EXTRACTING KRATOS IDENTITY & SESSION DATA")
+    log("="*70)
+    
+    try:
+        source_conn = get_kratos_source_connection()
+    except Exception as e:
+        error_msg = f"Unable to connect to Kratos source database: {e}"
+        log(error_msg, 'ERROR')
+        stats['errors'].append({'table': 'kratos', 'error': error_msg})
+        return
+    
+    # Special handling for identity_credentials (needs JOIN)
+    credentials_query = """
+        SELECT 
+            ic.id,
+            ic.identity_id,
+            ict.name as type,
+            ic.config,
+            ic.created_at,
+            ic.updated_at
+        FROM identity_credentials ic
+        LEFT JOIN identity_credential_types ict ON ic.identity_credential_type_id = ict.id
+        ORDER BY ic.updated_at DESC
+    """
+    rows, columns = extract_table(source_conn, 'identity_credentials', credentials_query, 'Kratos identity credentials')
+    if rows:
+        load_to_staging(
+            analytics_conn,
+            'staging',
+            'kratos_identity_credentials',
+            columns,
+            rows,
+            conflict_columns=DEFAULT_CONFLICT_COLUMNS.get('kratos_identity_credentials')
+        )
+    
+    # Process other tables
+    for config in KRATOS_TABLE_CONFIG:
+        query = build_dynamic_select_query(
+            source_conn=source_conn,
+            table_name=config['source_table'],
+            column_specs=config['columns'],
+            order_by=config.get('order_by'),
+            schema=config.get('schema', 'public')
+        )
+        
+        if not query:
+            log(f"   ❌ Skipping {config['source_table']} (unable to build query)", 'ERROR')
+            continue
+        
+        rows, columns = extract_table(
+            source_conn,
+            config['source_table'],
+            query,
+            config['description']
+        )
+        
+        if rows:
+            load_to_staging(
+                analytics_conn,
+                'staging',
+                config['staging_table'],
+                columns,
+                rows,
+                conflict_columns=DEFAULT_CONFLICT_COLUMNS.get(config['staging_table'])
+            )
+    
+    source_conn.close()
+    log("✅ Kratos extraction complete")
+
 def print_summary():
     """Print extraction summary statistics"""
     elapsed_total = time.time() - stats['start_time']
@@ -484,6 +678,7 @@ def main():
     try:
         extract_chemlink_data(analytics_conn)
         extract_engagement_data(analytics_conn)
+        extract_kratos_data(analytics_conn)
     except KeyboardInterrupt:
         log("\n⚠️  Extraction cancelled by user (Ctrl+C)", 'WARNING')
         analytics_conn.close()
